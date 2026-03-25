@@ -1,0 +1,49 @@
+# Evaluation pipeline — runs on push to main and manually.
+# Runs the evaluation suite and uploads result artifacts.
+name: Evaluation
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checkout repository
+      - uses: actions/checkout@v4
+
+      # 2. Set up Python
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # 3. Install dependencies
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # 4. Run evaluation in dry-run mode (no live Foundry calls)
+      #    To enable LIVE evaluation, remove --dry-run and uncomment the Azure secrets below.
+      - name: Run evaluation (dry-run)
+        run: |
+          python scripts/run_eval.py --dry-run --prompt baseline
+        env:
+          PYTHONPATH: src
+          # Uncomment below for live Foundry evaluation:
+          # AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          # AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          # AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          # AZURE_EXISTING_AIPROJECT_ENDPOINT: ${{ secrets.AZURE_EXISTING_AIPROJECT_ENDPOINT }}
+
+      # 5. Upload results artifacts
+      - name: Upload evaluation results
+        uses: actions/upload-artifact@v4
+        with:
+          name: evaluation-results
+          path: results/
+          if-no-files-found: warn

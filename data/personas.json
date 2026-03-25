@@ -1,0 +1,57 @@
+[
+  {
+    "persona_id": "budget_shopper",
+    "name": "Budget Shopper",
+    "store_preferences": ["Kmart"],
+    "budget_band": "low",
+    "preferred_categories": ["home essentials", "kids clothing", "kitchenware"],
+    "past_purchases": ["basic towel set", "plastic storage containers", "kids socks 5-pack"],
+    "upsell_tolerance": "low",
+    "cross_sell_interest": "medium",
+    "notes": "Prefers value packs and clearance items. Shops mainly at Kmart for everyday essentials."
+  },
+  {
+    "persona_id": "premium_shopper",
+    "name": "Premium Shopper",
+    "store_preferences": ["Officeworks", "Kmart"],
+    "budget_band": "high",
+    "preferred_categories": ["tech accessories", "ergonomic furniture", "premium stationery"],
+    "past_purchases": ["ergonomic office chair", "ultrawide monitor", "noise-cancelling headphones"],
+    "upsell_tolerance": "high",
+    "cross_sell_interest": "high",
+    "notes": "Values quality over price. Interested in premium workspace upgrades and productivity tools."
+  },
+  {
+    "persona_id": "diy_customer",
+    "name": "DIY Customer",
+    "store_preferences": ["Bunnings"],
+    "budget_band": "medium",
+    "preferred_categories": ["power tools", "garden supplies", "paint"],
+    "past_purchases": ["cordless drill", "exterior paint 10L", "garden hose reel"],
+    "upsell_tolerance": "medium",
+    "cross_sell_interest": "high",
+    "notes": "Weekend DIY enthusiast. Often buys complementary supplies for projects. Frequents Bunnings."
+  },
+  {
+    "persona_id": "office_worker",
+    "name": "Office Worker",
+    "store_preferences": ["Officeworks"],
+    "budget_band": "medium",
+    "preferred_categories": ["desk accessories", "print and copy", "technology"],
+    "past_purchases": ["wireless keyboard", "A4 copy paper 5-ream", "desk organizer"],
+    "upsell_tolerance": "medium",
+    "cross_sell_interest": "medium",
+    "notes": "Buys practical office supplies. Appreciates bundle deals and practical recommendations."
+  },
+  {
+    "persona_id": "seasonal_buyer",
+    "name": "Seasonal Buyer",
+    "store_preferences": ["Kmart", "Bunnings"],
+    "budget_band": "medium",
+    "preferred_categories": ["outdoor furniture", "christmas decorations", "seasonal plants"],
+    "past_purchases": ["outdoor umbrella", "LED fairy lights", "potted herb kit"],
+    "upsell_tolerance": "medium",
+    "cross_sell_interest": "high",
+    "notes": "Shops around seasonal events — summer, Christmas, Easter. Interested in outdoor and garden."
+  }
+]

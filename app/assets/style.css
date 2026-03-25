@@ -1,0 +1,403 @@
+/* ==========================================================================
+   Microsoft Foundry LLMOps Demo — Premium Stylesheet
+   ==========================================================================
+   Referenced by demo_ui.py — loads this file and injects via st.markdown.
+
+   Design tokens:
+     --brand-primary   Microsoft blue (#0078D4)
+     --brand-dark      Hover / pressed state
+     --brand-light     Tinted backgrounds
+     --accent          Azure cyan highlight
+     --surface-*       Layered background system
+     --text-*          3-tier text hierarchy
+     --border-*        Subtle separators
+     --shadow-*        Elevation levels
+     --radius-*        Consistent rounding
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+    --brand-primary:   #0078D4;
+    --brand-dark:      #004E8C;
+    --brand-light:     #DEECF9;
+    --accent:          #50E6FF;
+    --success:         #13A10E;
+    --warning:         #FCE100;
+    --danger:          #D13438;
+    --surface:         #FAFAFA;
+    --surface-raised:  #FFFFFF;
+    --surface-dim:     #F3F2F1;
+    --text-primary:    #242424;
+    --text-secondary:  #616161;
+    --text-muted:      #A0A0A0;
+    --border:          #E1DFDD;
+    --border-subtle:   #EDEBE9;
+    --shadow-sm:       0 1px 2px rgba(0,0,0,.06);
+    --shadow-md:       0 2px 8px rgba(0,0,0,.08);
+    --shadow-lg:       0 4px 16px rgba(0,0,0,.10);
+    --radius-sm:       6px;
+    --radius-md:       10px;
+    --radius-lg:       16px;
+}
+
+/* ---------- Base typography ---------- */
+html, body, [class*="css"] {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3,
+[data-testid="stHeading"] h1,
+[data-testid="stHeading"] h2,
+[data-testid="stHeading"] h3 {
+    font-family: 'Inter', sans-serif !important;
+    font-weight: 600 !important;
+    letter-spacing: -0.01em;
+    color: var(--text-primary) !important;
+}
+
+h1, [data-testid="stHeading"] h1 { font-size: 1.75rem !important; }
+h2, [data-testid="stHeading"] h2 { font-size: 1.35rem !important; }
+h3, [data-testid="stHeading"] h3 { font-size: 1.1rem  !important; }
+
+.stMarkdown p, .stMarkdown li {
+    font-size: 0.925rem;
+    line-height: 1.7;
+    color: var(--text-secondary);
+    max-width: 72ch;
+}
+
+.stCaption, small, [data-testid="stCaption"] {
+    font-size: 0.8rem !important;
+    color: var(--text-muted) !important;
+    letter-spacing: 0.01em;
+}
+
+code, pre, [data-testid="stCode"],
+.stCodeBlock, [data-testid="stJson"] {
+    font-family: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', monospace !important;
+    font-size: 0.82rem !important;
+    border-radius: var(--radius-sm) !important;
+}
+
+/* ---------- Page container ---------- */
+.block-container {
+    padding-top: 2rem !important;
+    padding-bottom: 3rem !important;
+    max-width: 1200px !important;
+}
+
+/* ---------- Sidebar ---------- */
+[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #FAFAFA 0%, #F3F2F1 100%) !important;
+    border-right: 1px solid var(--border-subtle) !important;
+}
+
+[data-testid="stSidebar"] [data-testid="stMarkdown"] h1 {
+    font-size: 1.15rem !important;
+    font-weight: 700 !important;
+    color: var(--brand-primary) !important;
+}
+
+[data-testid="stSidebar"] button {
+    text-align: left !important;
+    font-size: 0.75rem !important;
+    font-weight: 600 !important;
+    padding: 0.45rem 0.7rem !important;
+    border-radius: var(--radius-sm) !important;
+    border: none !important;
+    background: var(--brand-primary) !important;
+    color: #fff !important;
+    transition: all 0.15s ease;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    max-width: 100% !important;
+}
+
+[data-testid="stSidebar"] button:hover {
+    filter: brightness(1.15) !important;
+    box-shadow: var(--shadow-md) !important;
+}
+
+/* --- LLMOps stage background colors applied after general button rule below --- */
+
+/* Ensure sidebar button inner text aligns left */
+[data-testid="stSidebar"] button div,
+[data-testid="stSidebar"] button span,
+[data-testid="stSidebar"] button p {
+    text-align: left !important;
+    justify-content: flex-start !important;
+}
+
+/* ---------- Buttons ---------- */
+[data-testid="stButton"] > button {
+    font-family: 'Inter', sans-serif !important;
+    font-weight: 500 !important;
+    font-size: 0.8rem !important;
+    padding: 0.45rem 0.9rem !important;
+    border-radius: var(--radius-sm) !important;
+    border: 1px solid var(--brand-primary) !important;
+    background: var(--brand-primary) !important;
+    color: #fff !important;
+    box-shadow: var(--shadow-sm);
+    transition: all 0.15s ease;
+    white-space: nowrap;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+[data-testid="stButton"] > button:hover {
+    background: var(--brand-dark) !important;
+    border-color: var(--brand-dark) !important;
+    box-shadow: var(--shadow-md);
+    transform: translateY(-1px);
+}
+
+[data-testid="stButton"] > button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+/* --- LLMOps stage background colors per sidebar step (high specificity) --- */
+[data-testid="stSidebar"] .st-key-nav_1 button  { background: var(--stage-design) !important; border-color: var(--stage-design) !important; }
+[data-testid="stSidebar"] .st-key-nav_2 button,
+[data-testid="stSidebar"] .st-key-nav_3 button  { background: var(--stage-build) !important; border-color: var(--stage-build) !important; }
+[data-testid="stSidebar"] .st-key-nav_4 button,
+[data-testid="stSidebar"] .st-key-nav_5 button,
+[data-testid="stSidebar"] .st-key-nav_6 button,
+[data-testid="stSidebar"] .st-key-nav_7 button  { background: var(--stage-test) !important; border-color: var(--stage-test) !important; }
+[data-testid="stSidebar"] .st-key-nav_8 button  { background: var(--stage-operate) !important; border-color: var(--stage-operate) !important; }
+[data-testid="stSidebar"] .st-key-nav_9 button,
+[data-testid="stSidebar"] .st-key-nav_10 button { background: var(--stage-govern) !important; border-color: var(--stage-govern) !important; }
+
+/* ---------- Metrics ---------- */
+[data-testid="stMetric"] {
+    background: var(--surface-raised) !important;
+    border: 1px solid var(--border-subtle) !important;
+    border-radius: var(--radius-md) !important;
+    padding: 1rem 1.15rem !important;
+    box-shadow: var(--shadow-sm);
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+[data-testid="stMetric"] label {
+    font-size: 0.72rem !important;
+    font-weight: 600 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.06em !important;
+    color: var(--text-muted) !important;
+}
+
+[data-testid="stMetric"] [data-testid="stMetricValue"] {
+    font-size: 1.15rem !important;
+    font-weight: 700 !important;
+    color: var(--brand-primary) !important;
+}
+
+/* ---------- Expanders ---------- */
+[data-testid="stExpander"] {
+    border: 1px solid var(--border-subtle) !important;
+    border-radius: var(--radius-md) !important;
+    box-shadow: var(--shadow-sm);
+    margin-bottom: 0.5rem;
+}
+
+[data-testid="stExpander"] summary {
+    font-weight: 500 !important;
+    font-size: 0.875rem !important;
+    color: var(--text-primary);
+}
+
+/* ---------- Selectbox / Inputs ---------- */
+[data-testid="stSelectbox"] > div > div,
+[data-testid="stTextArea"] textarea,
+[data-testid="stTextInput"] input {
+    font-family: 'Inter', sans-serif !important;
+    font-size: 0.875rem !important;
+    border-radius: var(--radius-sm) !important;
+    border-color: var(--border) !important;
+    transition: border-color 0.15s ease;
+}
+
+[data-testid="stSelectbox"] > div > div:focus-within,
+[data-testid="stTextArea"] textarea:focus,
+[data-testid="stTextInput"] input:focus {
+    border-color: var(--brand-primary) !important;
+    box-shadow: 0 0 0 2px rgba(0, 120, 212, 0.15) !important;
+}
+
+/* ---------- Alerts ---------- */
+[data-testid="stAlert"] {
+    border-radius: var(--radius-sm) !important;
+    font-size: 0.85rem !important;
+    padding: 0.75rem 1rem !important;
+}
+
+/* ---------- Dataframes & Tables ---------- */
+[data-testid="stTable"], .stDataFrame {
+    overflow-x: auto !important;
+    border-radius: var(--radius-sm) !important;
+}
+
+[data-testid="stTable"] th {
+    font-size: 0.75rem !important;
+    font-weight: 600 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.04em !important;
+    color: var(--text-muted) !important;
+}
+
+/* ---------- Progress bar ---------- */
+[data-testid="stProgress"] > div > div {
+    background: linear-gradient(90deg, var(--brand-primary), var(--accent)) !important;
+    border-radius: 999px !important;
+}
+
+/* ---------- Dividers ---------- */
+hr, [data-testid="stDivider"] {
+    border-color: var(--border-subtle) !important;
+    opacity: 0.5;
+}
+
+/* ---------- JSON viewer ---------- */
+[data-testid="stJson"] {
+    background: var(--surface-dim) !important;
+    border: 1px solid var(--border-subtle) !important;
+    border-radius: var(--radius-sm) !important;
+    padding: 0.75rem !important;
+    max-width: 100%;
+    overflow-x: auto;
+}
+
+/* ---------- Scrollable code ---------- */
+pre {
+    max-width: 100%;
+    overflow-x: auto;
+    background: var(--surface-dim) !important;
+    border: 1px solid var(--border-subtle) !important;
+    border-radius: var(--radius-sm) !important;
+}
+
+/* ---------- Spinner ---------- */
+[data-testid="stSpinner"] {
+    color: var(--brand-primary) !important;
+}
+
+/* ---------- LLMOps Stage Color Tokens ---------- */
+:root {
+    --stage-design:    #7B2D8E;   /* Purple  — Design            */
+    --stage-build:     #0078D4;   /* Blue    — Build             */
+    --stage-test:      #13A10E;   /* Green   — Test & Evaluate   */
+    --stage-operate:   #CA5010;   /* Orange  — Operate           */
+    --stage-govern:    #D13438;   /* Red     — Govern & Automate */
+}
+
+/* Stage background colors are applied above via .st-key-nav_* selectors */
+
+/* Stage color legend in sidebar */
+.stage-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem 0.6rem;
+    font-size: 0.65rem;
+    font-family: 'Inter', sans-serif;
+    color: var(--text-primary);
+    margin: 0.25rem 0 0.5rem 0;
+    padding: 0.4rem 0.5rem;
+    background: var(--surface-raised);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-subtle);
+}
+.stage-legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    white-space: nowrap;
+    font-weight: 500;
+}
+.stage-swatch {
+    width: 14px;
+    height: 10px;
+    border-radius: 3px;
+    display: inline-block;
+    flex-shrink: 0;
+}
+.stage-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    flex-shrink: 0;
+}
+
+/* ==========================================================================
+   Responsive breakpoints
+   ========================================================================== */
+
+@media (max-width: 768px) {
+    [data-testid="stSidebar"] {
+        min-width: 0 !important;
+        max-width: 100vw !important;
+    }
+    [data-testid="stSidebar"] > div:first-child {
+        width: 100% !important;
+    }
+    [data-testid="stHorizontalBlock"] {
+        flex-wrap: wrap !important;
+    }
+    [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
+        flex: 1 1 100% !important;
+        min-width: 100% !important;
+    }
+    [data-testid="stMetric"] {
+        overflow-wrap: anywhere;
+        word-break: break-all;
+    }
+    .block-container {
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+    }
+    h1, [data-testid="stHeading"] h1 { font-size: 1.35rem !important; }
+    h2, [data-testid="stHeading"] h2 { font-size: 1.15rem !important; }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+    [data-testid="stHorizontalBlock"] {
+        flex-wrap: wrap !important;
+    }
+    [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
+        flex: 1 1 45% !important;
+        min-width: 45% !important;
+    }
+    .block-container {
+        padding-left: 2rem !important;
+        padding-right: 2rem !important;
+    }
+}
+
+/* ---------- Mode badge ---------- */
+.mode-badge {
+    display: inline-block;
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: 4px;
+    vertical-align: middle;
+    margin-left: 8px;
+}
+.mode-badge.walkthrough {
+    background: var(--surface-dim);
+    color: var(--text-secondary);
+}
+.mode-badge.hands-on {
+    background: var(--accent);
+    color: #000;
+}

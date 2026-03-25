@@ -1,0 +1,19 @@
+[
+  {"product_id": "KM001", "store": "Kmart", "name": "Basic Towel Set (4-pack)", "category": "home essentials", "price_aud": 18.00, "tags": ["value", "bathroom", "essentials"]},
+  {"product_id": "KM002", "store": "Kmart", "name": "Plastic Storage Containers (6-pack)", "category": "home essentials", "price_aud": 12.00, "tags": ["storage", "organisation", "value"]},
+  {"product_id": "KM003", "store": "Kmart", "name": "Kids Socks 5-Pack", "category": "kids clothing", "price_aud": 8.00, "tags": ["kids", "clothing", "value"]},
+  {"product_id": "KM004", "store": "Kmart", "name": "Non-Stick Frying Pan 28cm", "category": "kitchenware", "price_aud": 15.00, "tags": ["kitchen", "cooking", "essentials"]},
+  {"product_id": "KM005", "store": "Kmart", "name": "LED Fairy Lights 10m", "category": "seasonal", "price_aud": 10.00, "tags": ["seasonal", "lighting", "decor"]},
+  {"product_id": "OW001", "store": "Officeworks", "name": "Ergonomic Office Chair", "category": "ergonomic furniture", "price_aud": 349.00, "tags": ["premium", "ergonomic", "workspace"]},
+  {"product_id": "OW002", "store": "Officeworks", "name": "Wireless Keyboard and Mouse Combo", "category": "technology", "price_aud": 59.00, "tags": ["tech", "productivity", "wireless"]},
+  {"product_id": "OW003", "store": "Officeworks", "name": "A4 Copy Paper 5-Ream Box", "category": "print and copy", "price_aud": 32.00, "tags": ["paper", "office", "essentials"]},
+  {"product_id": "OW004", "store": "Officeworks", "name": "27-inch Monitor", "category": "technology", "price_aud": 299.00, "tags": ["tech", "display", "workspace"]},
+  {"product_id": "OW005", "store": "Officeworks", "name": "Desk Organizer Set", "category": "desk accessories", "price_aud": 24.00, "tags": ["organisation", "desk", "accessories"]},
+  {"product_id": "OW006", "store": "Officeworks", "name": "Noise-Cancelling Headphones", "category": "technology", "price_aud": 199.00, "tags": ["premium", "audio", "productivity"]},
+  {"product_id": "BN001", "store": "Bunnings", "name": "Cordless Drill 18V", "category": "power tools", "price_aud": 129.00, "tags": ["tools", "DIY", "cordless"]},
+  {"product_id": "BN002", "store": "Bunnings", "name": "Exterior Paint 10L (White)", "category": "paint", "price_aud": 89.00, "tags": ["paint", "exterior", "DIY"]},
+  {"product_id": "BN003", "store": "Bunnings", "name": "Garden Hose Reel 30m", "category": "garden supplies", "price_aud": 65.00, "tags": ["garden", "watering", "outdoor"]},
+  {"product_id": "BN004", "store": "Bunnings", "name": "Outdoor Umbrella 3m", "category": "outdoor furniture", "price_aud": 149.00, "tags": ["outdoor", "seasonal", "furniture"]},
+  {"product_id": "BN005", "store": "Bunnings", "name": "Potted Herb Kit (Basil, Mint, Parsley)", "category": "garden supplies", "price_aud": 22.00, "tags": ["garden", "herbs", "seasonal"]},
+  {"product_id": "BN006", "store": "Bunnings", "name": "Paint Roller Kit (3-piece)", "category": "paint", "price_aud": 18.00, "tags": ["paint", "accessories", "DIY"]}
+]

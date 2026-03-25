@@ -1,0 +1,102 @@
+[
+  {
+    "step_number": 1,
+    "title": "Welcome — Retail Personalization with LLMOps",
+    "llmops_stage": "Introduction",
+    "foundry_capability": "Project Overview",
+    "speaker_note": "Welcome everyone. Today we're going to walk through a day in the life of an LLMOps engineer using Microsoft Foundry. Our scenario: a retail organization needs an intelligent assistant that personalizes recommendations across Kmart, Officeworks, and Bunnings. We'll go from prompt management all the way to automated CI/CD.",
+    "action_label": null,
+    "expected_output": "Project endpoint and architecture displayed.",
+    "fallback_note": "If the Foundry endpoint is unreachable, the welcome page still displays the scenario and architecture summary."
+  },
+  {
+    "step_number": 2,
+    "title": "Prompt Management",
+    "llmops_stage": "Prompt Engineering",
+    "foundry_capability": "Prompt Versioning",
+    "speaker_note": "The first thing an LLMOps engineer manages is prompts. We treat prompts as versioned assets — not ad-hoc strings pasted into a chat box. Here we have four variants: baseline, cost-optimized, quality-optimized, and grounded. Each serves a different operational goal. Let me show you the differences.",
+    "action_label": "View and compare prompt variants",
+    "expected_output": "Prompt text displayed for each variant.",
+    "fallback_note": "Prompts are local files and always available regardless of connectivity."
+  },
+  {
+    "step_number": 3,
+    "title": "Create or Update Agent in Foundry",
+    "llmops_stage": "Agent Versioning",
+    "foundry_capability": "Managed Agent Creation",
+    "speaker_note": "Now we create our managed agent in Microsoft Foundry. This is RetailPersonlisedAgent. Foundry gives us versioning, so every change is tracked. If the agent already exists, we create a new version rather than overwriting. This is non-destructive and auditable.",
+    "action_label": "Create or Update Agent",
+    "expected_output": "Agent metadata returned: name, model, version, status.",
+    "fallback_note": "If Foundry is unavailable, show the agent creation code and explain what would happen. The code is readable and self-documenting."
+  },
+  {
+    "step_number": 4,
+    "title": "Baseline Run",
+    "llmops_stage": "Baseline Measurement",
+    "foundry_capability": "Agent Invocation",
+    "speaker_note": "Let's establish a baseline. We run the agent with the default prompt and no personalization. This gives us a reference point. Notice the response is generic — it doesn't know anything about the customer yet.",
+    "action_label": "Run Baseline Query",
+    "expected_output": "Agent response with model name, prompt variant, and response text.",
+    "fallback_note": "If the agent call fails, display a cached example response and explain the expected behavior."
+  },
+  {
+    "step_number": 5,
+    "title": "Persona Personalization",
+    "llmops_stage": "Context Injection",
+    "foundry_capability": "Memory / Context Management",
+    "speaker_note": "Now we inject customer context. LLMOps isn't just about the model — it's data plus prompt plus orchestration. Watch how the response changes when we tell the agent about a Budget Shopper versus a Premium Shopper. This is lightweight persona memory at work.",
+    "action_label": "Select Persona and Run",
+    "expected_output": "Personalized response reflecting the selected persona's preferences.",
+    "fallback_note": "Persona injection is local prompt manipulation. It works even without live Foundry — just the response won't come from the real agent."
+  },
+  {
+    "step_number": 6,
+    "title": "Multi-Model Comparison",
+    "llmops_stage": "Model Experimentation",
+    "foundry_capability": "Model Deployment Switching",
+    "speaker_note": "Model selection is part of optimization. Here we run the same scenario across different model configurations and compare quality, style, and latency. This helps us decide which model to promote for production.",
+    "action_label": "Compare Models",
+    "expected_output": "Side-by-side comparison table with response text, latency, and model name.",
+    "fallback_note": "If the secondary model is unavailable, show the primary result and explain that comparison requires multiple deployments."
+  },
+  {
+    "step_number": 7,
+    "title": "Evaluation",
+    "llmops_stage": "Quality Measurement",
+    "foundry_capability": "Evaluation Framework",
+    "speaker_note": "Every change needs measurement. We run our evaluation suite against a fixed set of test cases and score on relevance, personalization, grounding, and policy safety. This is what makes the LLMOps loop measurable rather than anecdotal.",
+    "action_label": "Run Evaluation",
+    "expected_output": "Evaluation scores table and summary.",
+    "fallback_note": "Evaluation uses heuristic scoring locally. It runs even without Foundry connectivity."
+  },
+  {
+    "step_number": 8,
+    "title": "Monitoring and Traces",
+    "llmops_stage": "Observability",
+    "foundry_capability": "Tracing and Monitoring",
+    "speaker_note": "In production, every invocation is traced — model used, prompt variant, persona, latency, and result quality. Foundry provides built-in monitoring. Here in our local demo, we capture the same data points so you can see what engineers review day-to-day.",
+    "action_label": null,
+    "expected_output": "Monitoring summary panel showing runtime events.",
+    "fallback_note": "Monitoring data is generated locally from demo runs. If no runs exist yet, explain what the monitoring dashboard would show."
+  },
+  {
+    "step_number": 9,
+    "title": "Governance and Guardrails",
+    "llmops_stage": "Compliance and Safety",
+    "foundry_capability": "Governance Controls",
+    "speaker_note": "Governance is not optional. We control which prompts are approved, how agent versions are promoted, who has access, and what safety expectations apply. Some of these are enterprise Foundry features; others are engineering practices enforced through CI and review.",
+    "action_label": null,
+    "expected_output": "Governance checklist with local vs enterprise control indicators.",
+    "fallback_note": "Governance content is static and always available."
+  },
+  {
+    "step_number": 10,
+    "title": "GitHub Actions — Closing the Loop",
+    "llmops_stage": "CI/CD Automation",
+    "foundry_capability": "Pipeline Integration",
+    "speaker_note": "Finally, automation. Prompt changes trigger CI. Evaluation runs on every push. Promotion to production is quality-gated. This is the complete LLMOps loop: prompt, agent, personalize, compare, evaluate, monitor, govern, and automate. Thank you!",
+    "action_label": null,
+    "expected_output": "Workflow summaries and LLMOps loop complete message.",
+    "fallback_note": "Workflow YAML files are local and always viewable."
+  }
+]

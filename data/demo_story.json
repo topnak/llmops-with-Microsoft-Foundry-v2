@@ -1,0 +1,110 @@
+{
+  "title": "Microsoft Foundry LLMOps Demo — Retail Personalised Agent",
+  "narrative": "A retail organization wants an intelligent assistant that can personalize retail recommendations across Australian brands such as Kmart, Officeworks, and Bunnings. The LLMOps engineer needs to manage prompts, create and version a Foundry agent, personalize the experience, compare models, evaluate quality, review monitoring, apply governance, and automate the loop with GitHub Actions.",
+  "brands": ["Kmart", "Officeworks", "Bunnings"],
+  "agent_name": "RetailPersonlisedAgent",
+  "primary_model": "gpt-4.1-mini",
+  "demo_duration_minutes": 20,
+  "stages": [
+    {
+      "stage": 1,
+      "title": "Intro / Scenario",
+      "objective": "Set the scene: retail personalization challenge and why LLMOps matters.",
+      "key_points": [
+        "Retail orgs need intelligent assistants that personalize across brands.",
+        "LLMOps brings engineering discipline to the AI lifecycle.",
+        "Microsoft Foundry provides managed agent hosting, versioning, and governance."
+      ]
+    },
+    {
+      "stage": 2,
+      "title": "Prompt Management",
+      "objective": "Show that prompts are versioned assets, not ad-hoc strings.",
+      "key_points": [
+        "Multiple prompt variants exist for different goals (cost, quality, grounding).",
+        "Prompt changes affect behavior and must be tracked.",
+        "Prompt management is the first step in the LLMOps loop."
+      ]
+    },
+    {
+      "stage": 3,
+      "title": "Create / Update Agent in Foundry",
+      "objective": "Demonstrate managed agent creation and versioning in Microsoft Foundry.",
+      "key_points": [
+        "Agents are managed resources in Foundry with versioning.",
+        "Creating a new version is non-destructive.",
+        "The agent is tied to a model deployment and instructions."
+      ]
+    },
+    {
+      "stage": 4,
+      "title": "Baseline Run",
+      "objective": "Run the agent with default prompt and no personalization.",
+      "key_points": [
+        "Establishes a baseline for comparison.",
+        "Uses gpt-4.1-mini as the primary model.",
+        "Shows raw agent behavior before optimization."
+      ]
+    },
+    {
+      "stage": 5,
+      "title": "Persona Personalization",
+      "objective": "Inject customer persona context and observe behavior change.",
+      "key_points": [
+        "Persona data acts as lightweight memory/context.",
+        "LLMOps includes data + prompt + agent orchestration.",
+        "Different personas produce meaningfully different responses."
+      ]
+    },
+    {
+      "stage": 6,
+      "title": "Multi-Model Comparison",
+      "objective": "Compare model outputs to optimize quality, cost, and latency.",
+      "key_points": [
+        "Model selection is part of the optimization loop.",
+        "Compare quality, style, latency, and consistency.",
+        "Results inform which model to promote."
+      ]
+    },
+    {
+      "stage": 7,
+      "title": "Evaluation",
+      "objective": "Run structured evaluations to measure quality.",
+      "key_points": [
+        "Every change must be tested against fixed scenarios.",
+        "Scoring dimensions: relevance, personalization, grounding, policy/safety.",
+        "Evaluation makes the LLMOps loop measurable."
+      ]
+    },
+    {
+      "stage": 8,
+      "title": "Monitoring and Traces",
+      "objective": "Show what observability looks like in production.",
+      "key_points": [
+        "Trace every invocation: model, prompt, persona, latency, result.",
+        "Foundry provides built-in tracing and monitoring.",
+        "Local demo captures runtime events for review."
+      ]
+    },
+    {
+      "stage": 9,
+      "title": "Governance and Guardrails",
+      "objective": "Demonstrate controls that keep AI safe and compliant.",
+      "key_points": [
+        "Approved prompts, agent versioning, evaluation gates.",
+        "RBAC and least-privilege credentials.",
+        "Safety expectations and policy compliance."
+      ]
+    },
+    {
+      "stage": 10,
+      "title": "GitHub Actions / Automation",
+      "objective": "Show how CI/CD automates the LLMOps loop.",
+      "key_points": [
+        "Prompt changes trigger CI validation.",
+        "Evaluation runs automatically on push.",
+        "Promotion is quality-gated."
+      ]
+    }
+  ]
+}

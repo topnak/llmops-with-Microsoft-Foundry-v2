@@ -1,0 +1,67 @@
+# CI pipeline — runs on every push, PR, and manually.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      # 1. Checkout the repository
+      - uses: actions/checkout@v4
+
+      # 2. Set up Python
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      # 3. Install dependencies
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # 4. Run tests
+      - name: Run pytest
+        run: |
+          pytest tests/ -v
+
+      # 5. Validate prompt files exist and are non-empty
+      - name: Validate prompts
+        run: |
+          python -c "
+          from llmops_demo.prompt_manager import list_prompts, validate_prompt
+          prompts = list_prompts()
+          assert len(prompts) >= 4, f'Expected >= 4 prompts, got {len(prompts)}'
+          for p in prompts:
+              ok, issues = validate_prompt(p)
+              assert ok, f'Prompt {p} invalid: {issues}'
+          print(f'All {len(prompts)} prompts validated.')
+          "
+        env:
+          PYTHONPATH: src
+
+      # 6. Smoke check — verify data files load correctly
+      - name: Smoke check data
+        run: |
+          python -c "
+          from llmops_demo.memory import load_personas, load_products
+          from llmops_demo.utils import load_demo_story, load_demo_steps
+          assert len(load_personas()) == 5
+          assert len(load_products()) >= 12
+          assert len(load_demo_story()['stages']) == 10
+          assert len(load_demo_steps()) == 10
+          print('Data smoke check passed.')
+          "
+        env:
+          PYTHONPATH: src

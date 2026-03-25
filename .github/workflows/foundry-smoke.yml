@@ -1,0 +1,57 @@
+# Foundry smoke test — manual trigger only.
+# Validates live connectivity to Microsoft Foundry.
+# Requires Azure credentials configured as GitHub secrets.
+name: Foundry Smoke Test
+
+on:
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checkout
+      - uses: actions/checkout@v4
+
+      # 2. Set up Python
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # 3. Install dependencies
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # 4. Create or update agent in Foundry
+      - name: Create agent
+        run: |
+          python scripts/create_agent.py
+        env:
+          PYTHONPATH: src
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_EXISTING_AIPROJECT_ENDPOINT: ${{ secrets.AZURE_EXISTING_AIPROJECT_ENDPOINT }}
+
+      # 5. Run baseline query
+      - name: Run baseline
+        run: |
+          python scripts/run_baseline.py
+        env:
+          PYTHONPATH: src
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_EXISTING_AIPROJECT_ENDPOINT: ${{ secrets.AZURE_EXISTING_AIPROJECT_ENDPOINT }}
+
+      # 6. Upload results
+      - name: Upload smoke results
+        uses: actions/upload-artifact@v4
+        with:
+          name: foundry-smoke-results
+          path: results/
+          if-no-files-found: warn

@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "llmops-foundry-nextgen-demo"
+version = "1.0.0"
+description = "Microsoft Foundry NextGen LLMOps Demo — RetailPersonlisedAgent"
+requires-python = ">=3.11"
+dependencies = [
+    "streamlit>=1.30.0",
+    "azure-identity>=1.15.0",
+    "azure-ai-projects>=1.0.0b1",
+    "openai>=1.10.0",
+    "python-dotenv>=1.0.0",
+    "rich>=13.0.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0.0"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
