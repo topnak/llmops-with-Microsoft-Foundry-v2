@@ -104,11 +104,14 @@ def invoke_agent(
     persona: str = "",
     system_prompt: str = "",
 ) -> InvocationResult:
-    """Invoke the Foundry Prompt Agent via chat completions.
+    """Invoke the Foundry Prompt Agent via the Responses API.
 
-    Fetches the agent's stored definition (model + instructions) from Foundry,
-    then calls the OpenAI-compatible chat completions API.  If a *system_prompt*
-    override is supplied it takes precedence over the agent's stored instructions.
+    Uses the OpenAI Responses API with ``store=True`` so that every call
+    is recorded in the Foundry portal under the project's stored responses,
+    making evaluation runs visible for tracing and monitoring.
+
+    If a *system_prompt* override is supplied it takes precedence over the
+    agent's stored instructions.
     """
     result = InvocationResult(
         agent_name=agent_name,
@@ -129,20 +132,25 @@ def invoke_agent(
         effective_system = system_prompt or agent_instructions
 
         openai_client = get_openai_client(project_client)
-        messages: list[dict[str, str]] = []
-        if effective_system:
-            messages.append({"role": "system", "content": effective_system})
-        messages.append({"role": "user", "content": user_message})
 
-        response = openai_client.chat.completions.create(
+        # Use Responses API with store=True for Foundry portal visibility
+        response = openai_client.responses.create(
             model=effective_model,
-            messages=messages,
+            instructions=effective_system or None,
+            input=user_message,
+            store=True,
+            metadata={
+                "agent_name": agent_name,
+                "prompt_variant": prompt_variant,
+                "persona": persona,
+                "version": latest.get("version", ""),
+            },
         )
-        result.response_text = response.choices[0].message.content or ""
+        result.response_text = response.output_text or ""
         result.model_name = effective_model
         result.version = latest.get("version", "")
         result.status = "success"
-        logger.info("Agent invocation succeeded for '%s'.", agent_name)
+        logger.info("Agent invocation succeeded for '%s' (response_id=%s).", agent_name, response.id)
     except Exception as exc:
         result.status = "error"
         result.error = str(exc)

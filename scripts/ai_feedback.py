@@ -95,17 +95,18 @@ Please analyze these scores and provide:
         client = create_project_client()
         openai_client = get_openai_client(client)
 
-        response = openai_client.chat.completions.create(
+        response = openai_client.responses.create(
             model=args.model,
-            messages=[
-                {"role": "system", "content": ANALYSIS_SYSTEM_PROMPT},
-                {"role": "user", "content": user_message},
-            ],
-            temperature=0.3,
-            max_tokens=1500,
+            instructions=ANALYSIS_SYSTEM_PROMPT,
+            input=user_message,
+            store=True,
+            metadata={
+                "task": "prompt_analysis",
+                "candidate_prompt": args.prompt,
+            },
         )
 
-        ai_text = response.choices[0].message.content
+        ai_text = response.output_text
         feedback = f"# AI Prompt Analysis\n\n{ai_text}\n"
 
     print(feedback)
