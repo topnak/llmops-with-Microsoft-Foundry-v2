@@ -143,6 +143,11 @@ jobs:
           echo "12 eval cases × (relevance + personalization + grounding + policy_safety)"
           python scripts/run_eval.py --prompt baseline
 
+      - name: "Upload baseline eval to Foundry portal"
+        run: |
+          echo "Submitting baseline evaluation to Foundry Evaluation tab..."
+          python scripts/foundry_eval.py --prompt baseline
+
       - name: Save baseline results
         run: cp results/eval_summary.json results/eval_baseline.json
 
@@ -179,6 +184,12 @@ jobs:
           echo "Running LIVE evaluation of candidate prompt: $PROMPT"
           echo "12 eval cases × (relevance + personalization + grounding + policy_safety)"
           python scripts/run_eval.py --prompt "$PROMPT"
+
+      - name: "Upload candidate eval to Foundry portal"
+        run: |
+          PROMPT="${{ needs.detect.outputs.changed_prompt }}"
+          echo "Submitting candidate evaluation to Foundry Evaluation tab..."
+          python scripts/foundry_eval.py --prompt "$PROMPT"
 
       - name: Save candidate results
         run: cp results/eval_summary.json results/eval_candidate.json
@@ -367,6 +378,12 @@ jobs:
           PROMPT="${{ needs.detect.outputs.changed_prompt }}"
           echo "Running post-deployment evaluation with prompt: $PROMPT"
           python scripts/run_eval.py --prompt "$PROMPT"
+
+      - name: "Upload post-deploy eval to Foundry portal"
+        run: |
+          PROMPT="${{ needs.detect.outputs.changed_prompt }}"
+          echo "Submitting post-deploy evaluation to Foundry Evaluation tab..."
+          python scripts/foundry_eval.py --prompt "${PROMPT}-post-deploy"
 
       - name: Save post-deploy results
         run: cp results/eval_summary.json results/eval_post_deploy.json
