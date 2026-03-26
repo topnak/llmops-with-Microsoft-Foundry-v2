@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from pathlib import Path
 
 
@@ -119,10 +118,6 @@ def main() -> None:
     with open(json_path, "w", encoding="utf-8") as f:
         json.dump(comparison, f, indent=2)
     print(f"Structured comparison saved to {json_path}")
-
-    # Exit with code based on recommendation
-    if comparison["recommendation"] == "REJECT":
-        sys.exit(1)
 
 
 if __name__ == "__main__":

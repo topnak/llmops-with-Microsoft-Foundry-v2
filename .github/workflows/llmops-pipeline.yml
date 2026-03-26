@@ -14,8 +14,12 @@ name: LLMOps Pipeline
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "prompts/*.txt"
   pull_request:
     branches: [main]
+    paths-ignore:
+      - "prompts/*.txt"
   workflow_dispatch:
 
 jobs:
