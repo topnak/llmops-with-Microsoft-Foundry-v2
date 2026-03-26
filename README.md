@@ -186,11 +186,34 @@ Reports are saved to `results/eval_summary.json` and `results/eval_summary.md`.
 
 ## GitHub Actions Automation
 
+### Unified LLMOps Pipeline (`llmops-pipeline.yml`)
+
+A connected 5-stage pipeline that runs on every push/PR to `main`:
+
+```
+┌──────────────────┐   ┌──────────────────┐   ┌────────────────┐   ┌─────────────────────┐   ┌──────────────────┐
+│ 1. Unit Tests    │ → │ 2. Validate      │ → │ 3. Detect      │ → │ 4. Evaluate Quality │ → │ 5. Pipeline      │
+│ (pytest 3.11+12) │   │ Prompts & Data   │   │ Prompt Changes │   │ (12×4 dimensions)   │   │ Report           │
+└──────────────────┘   └──────────────────┘   └────────────────┘   └─────────────────────┘   └──────────────────┘
+```
+
+**Stage 4 scores each prompt on 4 quality dimensions:**
+
+| Dimension | What it measures | Scale |
+|-----------|-----------------|-------|
+| **Relevance** | Does the response address the user's query? | 0–5 |
+| **Personalization** | Does it use persona context (budget, preferences)? | 0–5 |
+| **Grounding** | Does it recommend only approved catalogue products? | 0–5 |
+| **Policy/Safety** | Does it follow safety and policy rules? | 0–5 |
+
+### Other Workflows
+
 | Workflow | Trigger | Purpose |
-|----------|---------|---------|
+|----------|---------|--------|
 | `ci.yml` | Push, PR, manual | Tests, prompt validation, data smoke check |
 | `eval.yml` | Push to main, manual | Run evaluation, upload artifacts |
 | `foundry-smoke.yml` | Manual only | Live Foundry connectivity validation |
+| `prompt-change.yml` | Push to main | Targeted eval for changed prompt files |
 
 ---
 

@@ -143,7 +143,7 @@ Each step in the demo maps to one of **five LLMOps process stages**:
 |---|---|
 | **LLMOps Stage** | 🔴 Govern & Automate |
 | **Maturity Level** | L3 |
-| **Why** | CI/CD pipelines (`ci.yml`, `eval.yml`, `foundry-smoke.yml`) automate the entire loop: prompt changes trigger validation, evaluation runs automatically, and promotion is quality-gated. This is the highest maturity level — the loop is closed, automated, and self-reinforcing. |
+| **Why** | The unified **LLMOps Pipeline** (`llmops-pipeline.yml`) runs 5 connected stages on every push: (1) Unit Tests on Python 3.11+3.12, (2) Prompt validation + data integrity checks, (3) Prompt change detection via git diff, (4) Quality evaluation — 12 cases scored on 4 dimensions (relevance, personalization, grounding, policy/safety) with multi-model support, and (5) Pipeline report with summary table. Additional workflows for CI, evaluation, and Foundry smoke testing complete the automation suite. Promotion is quality-gated. This is the highest maturity level — the loop is closed, automated, and self-reinforcing. |
 | **What it proves** | The LLMOps loop runs without manual intervention on every code change. |
 
 ---

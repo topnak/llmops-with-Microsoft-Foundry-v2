@@ -111,9 +111,17 @@ Expected result:
 - [ ] `src/llmops_demo/` exists
 - [ ] `tests/` exists
 - [ ] `.github/workflows/` exists
+- [ ] `.github/workflows/llmops-pipeline.yml` exists (unified 5-stage pipeline)
+- [ ] `.github/workflows/ci.yml` exists
+- [ ] `.github/workflows/eval.yml` exists
+- [ ] `.github/workflows/foundry-smoke.yml` exists
+- [ ] `.github/workflows/prompt-change.yml` exists
 
 Expected result:
 - structure matches the instruction file closely
+- unified pipeline has 5 connected stages: Unit Tests → Validate → Detect → Evaluate Quality → Report
+- evaluation checks 4 dimensions: relevance, personalization, grounding, policy/safety
+- all workflows use `actions/checkout@v5`
 
 ---
 

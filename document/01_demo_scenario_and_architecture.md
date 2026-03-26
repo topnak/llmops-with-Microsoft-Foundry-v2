@@ -201,7 +201,7 @@ Data Layer (local files):
 |---|---|
 | **Purpose** | Show how CI/CD closes the LLMOps loop |
 | **Foundry connection** | None (reads workflow YAML files) |
-| **What happens** | Displays the 3 GitHub Actions workflow files (`ci.yml`, `eval.yml`, `foundry-smoke.yml`) with their YAML contents. Shows the LLMOps automation loop diagram. Ends with a "LLMOps loop complete" celebration. |
+| **What happens** | Displays the unified **LLMOps Pipeline** (`llmops-pipeline.yml`) with its 5 connected stages: (1) Unit Tests on Python 3.11+3.12, (2) Validate Prompts & Data Integrity, (3) Detect Prompt Changes via git diff, (4) Evaluate Quality — 12 eval cases scored on 4 dimensions (relevance, personalization, grounding, policy/safety), (5) Pipeline Report with summary table. Also shows individual workflows (`ci.yml`, `eval.yml`, `foundry-smoke.yml`). Ends with a "LLMOps loop complete" celebration. |
 | **User interaction** | Expand each workflow to view YAML |
 
 ---

@@ -86,6 +86,20 @@ git push -u origin improve-<prompt-name>
 
 ## Pipeline Triggers
 
+### Unified LLMOps Pipeline (5 connected stages)
+
+Triggered on push/PR to `main`:
+
+| Stage | Name | What it checks |
+|---|---|---|
+| 1 | Unit Tests | 26 pytest tests on Python 3.11 + 3.12 |
+| 2 | Validate Prompts & Data | 4 prompts valid + 5 personas, 17 products, 12 eval cases |
+| 3 | Detect Prompt Changes | git diff on `prompts/` directory |
+| 4 | Evaluate Quality | 12 cases × 4 dimensions (relevance, personalization, grounding, safety) |
+| 5 | Pipeline Report | Summary table + artifact upload |
+
+### Other Workflows
+
 | Pipeline | Trigger | What it does |
 |---|---|---|
 | CI | Push, PR | Tests + prompt validation + data smoke |

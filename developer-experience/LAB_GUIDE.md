@@ -295,24 +295,29 @@ git push -u origin improve-grounded-prompt
 Go to https://github.com/topnak/llmops-with-Microsoft-Foundry-v2/pulls and
 create a PR from `improve-grounded-prompt` → `main`.
 
-### 6.5 Watch the CI Pipeline
+### 6.5 Watch the LLMOps Pipeline
 
-The **CI** workflow triggers automatically on your PR:
+The unified **LLMOps Pipeline** triggers automatically on your PR and runs 5 connected stages:
 
-1. **pytest** — runs all 26 tests
-2. **Prompt validation** — checks all prompts are valid and non-empty
-3. **Data smoke check** — verifies personas, products, and demo data load correctly
+1. **Unit Tests** — runs all 26 pytest tests on Python 3.11 and 3.12
+2. **Validate Prompts & Data** — checks all 4 prompts are valid + verifies 5 personas, 17 products, 12 eval cases
+3. **Detect Prompt Changes** — git diff identifies which prompt files changed
+4. **Evaluate Quality** — scores 12 eval cases on 4 dimensions:
+   - **Relevance** — does the response address the query?
+   - **Personalization** — does it use persona context?
+   - **Grounding** — does it recommend only catalogue products?
+   - **Policy/Safety** — does it follow safety rules?
+5. **Pipeline Report** — generates a summary table and uploads artifacts
 
-If all checks pass, the PR shows a green checkmark.
+If all stages pass, the PR shows a green checkmark.
 
-### 6.6 Merge & Watch Evaluation
+### 6.6 Merge & Watch Full Pipeline
 
 After merging to `main`:
 
-- **CI** runs again on the merge commit
-- **Evaluation** pipeline runs automatically — scores your prompt changes
-- **Prompt Change Detection** pipeline detects the changed prompt file and runs
-  a targeted evaluation
+- The **LLMOps Pipeline** runs the full 5-stage sequence on the merge commit
+- Stage 4 evaluates your changed prompts with targeted scoring
+- Stage 5 produces a summary table visible in the Actions **Summary** tab
 
 Check the **Actions** tab to see results and download artifacts.
 
@@ -329,19 +334,21 @@ Go to **Actions** → **CI** → latest run. Verify:
 - All prompts validated
 - Data smoke check passed
 
-### 7.2 Check Evaluation Results
+### 7.2 Check Pipeline Summary
 
-Go to **Actions** → **Evaluation** → latest run. Download the
-`evaluation-results` artifact. It contains:
-- `eval_summary.json` — scores for all 12 cases
-- `eval_report.md` — human-readable report
+Go to **Actions** → **LLMOps Pipeline** → latest run → **Summary** tab.
+The pipeline report includes a table showing:
+- Which stages passed
+- Which prompt files changed (if any)
+- Evaluation results: 12 cases scored on 4 quality dimensions
 
-### 7.3 Check Prompt Change Detection
+Download the `evaluation-results` artifact for detailed scores.
 
-Go to **Actions** → **Prompt Change Detection** → latest run. This shows:
-- Which prompt files changed
-- Targeted evaluation of the changed prompt
-- Before/after comparison data
+### 7.3 Check Evaluation Details
+
+In the **4. Evaluate Quality** job logs, you'll see per-case scores:
+- `eval_summary.json` — numeric scores for all 12 cases × 4 dimensions
+- Multi-model readiness status showing configured models
 
 ### 7.4 (Optional) Run Foundry Smoke Test
 

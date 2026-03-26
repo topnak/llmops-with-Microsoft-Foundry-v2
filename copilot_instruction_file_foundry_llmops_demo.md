@@ -717,6 +717,18 @@ Use `pytest`.
 
 Create these workflows.
 
+## `.github/workflows/llmops-pipeline.yml` (primary)
+The unified 5-stage connected pipeline. Runs on push, PR, and manual dispatch.
+
+Stages (each job uses `needs:` for the connected graph):
+1. **Unit Tests** — pytest on Python 3.11 + 3.12 (26 tests)
+2. **Validate Prompts & Data** — validate all 4 prompts + compute checksums + verify data integrity (5 personas, 17 products, 12 eval cases)
+3. **Detect Prompt Changes** — git diff on `prompts/` directory, outputs changed prompt list
+4. **Evaluate Quality** — 12 eval cases scored on 4 dimensions (relevance, personalization, grounding, policy/safety) + multi-model readiness check + artifact upload
+5. **Pipeline Report** — generate summary table in GitHub Actions job summary + upload demo report artifact
+
+Use `actions/checkout@v5` and `actions/setup-python@v5` throughout.
+
 ## `.github/workflows/ci.yml`
 Run on:
 - push
@@ -749,6 +761,13 @@ Run on:
 
 Purpose:
 - optional smoke validation against live Foundry
+
+## `.github/workflows/prompt-change.yml`
+Run on:
+- push to main (when `prompts/` files change)
+
+Purpose:
+- detect changed prompt files and run targeted evaluation
 
 Use GitHub secrets:
 - `AZURE_CLIENT_ID`
