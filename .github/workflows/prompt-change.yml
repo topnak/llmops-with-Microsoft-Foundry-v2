@@ -54,9 +54,9 @@ jobs:
           for prompt in "${PROMPTS[@]}"; do
             echo "Validating: $prompt"
             python -c "
-          from llmops_demo.prompt_manager import validate_prompt, get_prompt_checksum
+          from llmops_demo.prompt_manager import validate_prompt, prompt_checksum
           ok, issues = validate_prompt('$prompt')
-          checksum = get_prompt_checksum('$prompt')
+          checksum = prompt_checksum('$prompt')
           print(f'  Valid: {ok}')
           print(f'  Checksum: {checksum}')
           if not ok:

@@ -28,7 +28,7 @@ python -c "from llmops_demo.prompt_manager import list_prompts; print(list_promp
 python -c "from llmops_demo.prompt_manager import validate_prompt; print(validate_prompt('baseline'))"
 
 # Get checksum (version hash)
-python -c "from llmops_demo.prompt_manager import get_prompt_checksum; print(get_prompt_checksum('baseline'))"
+python -c "from llmops_demo.prompt_manager import prompt_checksum; print(prompt_checksum('baseline'))"
 ```
 
 ## Agent Operations (requires Azure credentials)

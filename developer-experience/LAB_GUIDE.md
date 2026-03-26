@@ -146,9 +146,9 @@ for p in list_prompts():
 
 ```powershell
 python -c "
-from llmops_demo.prompt_manager import list_prompts, get_prompt_checksum
+from llmops_demo.prompt_manager import list_prompts, prompt_checksum
 for p in list_prompts():
-    print(f'  {p}: {get_prompt_checksum(p)}')
+    print(f'  {p}: {prompt_checksum(p)}')
 "
 ```
 
@@ -189,10 +189,10 @@ Never recommend products from stores the customer hasn't listed as preferences.
 
 ```powershell
 python -c "
-from llmops_demo.prompt_manager import validate_prompt, get_prompt_checksum
+from llmops_demo.prompt_manager import validate_prompt, prompt_checksum
 ok, issues = validate_prompt('grounded_retail')
 print(f'Valid: {ok}')
-print(f'New checksum: {get_prompt_checksum(\"grounded_retail\")}')
+print(f'New checksum: {prompt_checksum(\"grounded_retail\")}')
 "
 ```
 

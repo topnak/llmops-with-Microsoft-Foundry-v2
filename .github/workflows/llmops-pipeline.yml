@@ -74,12 +74,12 @@ jobs:
       - name: Validate all prompts
         run: |
           python -c "
-          from llmops_demo.prompt_manager import list_prompts, validate_prompt, get_prompt_checksum
+          from llmops_demo.prompt_manager import list_prompts, validate_prompt, prompt_checksum
           prompts = list_prompts()
           assert len(prompts) >= 4, f'Expected >= 4 prompts, got {len(prompts)}'
           for p in prompts:
               ok, issues = validate_prompt(p)
-              checksum = get_prompt_checksum(p)
+              checksum = prompt_checksum(p)
               print(f'  {p}: valid={ok}  checksum={checksum}')
               assert ok, f'Prompt {p} invalid: {issues}'
           print(f'\nAll {len(prompts)} prompts validated.')
