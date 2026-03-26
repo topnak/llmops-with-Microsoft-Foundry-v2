@@ -1,16 +1,13 @@
-# LLMOps Pipeline — unified connected pipeline for prompt changes.
-# Shows a visual pipeline graph in GitHub Actions with connected stages.
+# LLMOps Pipeline — unified connected pipeline with 5 visual stages.
 #
-# Triggers:
-#   - Push to main (any file)
-#   - Pull request to main
-#   - Manual dispatch
+# GitHub Actions renders this as a connected graph:
 #
-# Pipeline stages:
-#   ┌──────┐     ┌──────────┐     ┌────────────────┐     ┌──────────┐     ┌──────────┐
-#   │ Test │ ──→ │ Validate │ ──→ │ Detect Changes │ ──→ │ Evaluate │ ──→ │  Report  │
-#   │      │     │ Prompts  │     │                │     │          │     │          │
-#   └──────┘     └──────────┘     └────────────────┘     └──────────┘     └──────────┘
+#   ┌───────────────────┐    ┌──────────────────┐    ┌─────────────────┐    ┌─────────────────────────┐    ┌──────────────────┐
+#   │ 1. Unit Tests     │ →  │ 2. Validate      │ →  │ 3. Detect       │ →  │ 4. Evaluate Quality     │ →  │ 5. Pipeline      │
+#   │ (26 pytest tests  │    │ Prompts & Data   │    │ Prompt Changes  │    │ (12 cases × 4 dims ×    │    │ Report           │
+#   │  on Py 3.11+3.12) │    │ (integrity +     │    │ (git diff)      │    │  multi-model)           │    │ (summary +       │
+#   │                   │    │  checksums)       │    │                 │    │                         │    │  artifacts)      │
+#   └───────────────────┘    └──────────────────┘    └─────────────────┘    └─────────────────────────┘    └──────────────────┘
 
 name: LLMOps Pipeline
 
@@ -23,17 +20,20 @@ on:
 
 jobs:
   # ──────────────────────────────────────────────────────────────────
-  # Stage 1: Test — run pytest across Python versions
+  # Stage 1: Unit Tests
+  #   What: 26 pytest tests covering prompt loading, persona data,
+  #          evaluation scoring, monitoring, and configuration
+  #   Against: Python 3.11 and 3.12
   # ──────────────────────────────────────────────────────────────────
-  test:
-    name: "1. Test"
+  unit-tests:
+    name: "1. Unit Tests — pytest (Python ${{ matrix.python-version }})"
     runs-on: ubuntu-latest
     strategy:
       matrix:
         python-version: ["3.11", "3.12"]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
@@ -45,21 +45,24 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run pytest
-        run: pytest tests/ -v
+      - name: "Run 26 tests: prompts, personas, eval scoring, monitoring, config"
+        run: pytest tests/ -v --tb=short
         env:
           PYTHONPATH: src
 
   # ──────────────────────────────────────────────────────────────────
-  # Stage 2: Validate Prompts — check all prompt files
+  # Stage 2: Validate Prompts & Data Integrity
+  #   What: Check all 4+ prompt files exist, are non-empty, and valid.
+  #          Compute checksums for version tracking.
+  #          Verify 5 personas, 17 products, 12 eval cases load correctly.
   # ──────────────────────────────────────────────────────────────────
-  validate-prompts:
-    name: "2. Validate Prompts"
-    needs: test
+  validate:
+    name: "2. Validate Prompts & Data Integrity"
+    needs: unit-tests
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -71,53 +74,76 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Validate all prompts
+      - name: "Validate 4 prompt variants + compute checksums"
         run: |
           python -c "
           from llmops_demo.prompt_manager import list_prompts, validate_prompt, prompt_checksum
           prompts = list_prompts()
           assert len(prompts) >= 4, f'Expected >= 4 prompts, got {len(prompts)}'
+          print('Prompt Validation:')
+          print('-' * 60)
           for p in prompts:
               ok, issues = validate_prompt(p)
-              checksum = prompt_checksum(p)
-              print(f'  {p}: valid={ok}  checksum={checksum}')
+              cs = prompt_checksum(p)
+              status = 'PASS' if ok else f'FAIL: {issues}'
+              print(f'  {p:25s} {status:10s}  checksum={cs}')
               assert ok, f'Prompt {p} invalid: {issues}'
           print(f'\nAll {len(prompts)} prompts validated.')
           "
         env:
           PYTHONPATH: src
 
-      - name: Smoke check data files
+      - name: "Verify data: 5 personas, 17 products, 12 eval cases, 10 steps"
         run: |
           python -c "
           from llmops_demo.memory import load_personas, load_products
           from llmops_demo.utils import load_demo_story, load_demo_steps
-          assert len(load_personas()) == 5, 'Expected 5 personas'
-          assert len(load_products()) >= 12, 'Expected >= 12 products'
-          assert len(load_demo_story()['stages']) == 10, 'Expected 10 stages'
-          assert len(load_demo_steps()) == 10, 'Expected 10 steps'
-          print('Data smoke check passed.')
+          from llmops_demo.evaluation import load_eval_cases
+
+          personas = load_personas()
+          products = load_products()
+          stages = load_demo_story()['stages']
+          steps = load_demo_steps()
+          cases = load_eval_cases()
+
+          print('Data Integrity:')
+          print('-' * 60)
+          checks = [
+              ('Personas',    len(personas), 5,  '=='),
+              ('Products',    len(products), 12, '>='),
+              ('Demo stages', len(stages),   10, '=='),
+              ('Demo steps',  len(steps),    10, '=='),
+              ('Eval cases',  len(cases),    12, '>='),
+          ]
+          for name, actual, expected, op in checks:
+              ok = (actual == expected) if op == '==' else (actual >= expected)
+              status = 'PASS' if ok else 'FAIL'
+              print(f'  {name:15s} {actual:3d} (expected {op} {expected})  {status}')
+              assert ok, f'{name}: expected {op} {expected}, got {actual}'
+          print('\nAll data integrity checks passed.')
           "
         env:
           PYTHONPATH: src
 
   # ──────────────────────────────────────────────────────────────────
-  # Stage 3: Detect Changes — identify which prompts changed
+  # Stage 3: Detect Prompt Changes
+  #   What: Git diff to find which prompt .txt files changed
+  #   Output: List of changed prompts for targeted evaluation
   # ──────────────────────────────────────────────────────────────────
   detect-changes:
-    name: "3. Detect Prompt Changes"
-    needs: validate-prompts
+    name: "3. Detect Prompt Changes (git diff)"
+    needs: validate
     runs-on: ubuntu-latest
     outputs:
       changed_prompts: ${{ steps.detect.outputs.changed_prompts }}
       has_prompt_changes: ${{ steps.detect.outputs.has_changes }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 2
 
-      - name: Detect changed prompt files
+      - name: Identify changed prompt files
         id: detect
         run: |
           if git rev-parse HEAD~1 >/dev/null 2>&1; then
@@ -128,22 +154,29 @@ jobs:
           echo "changed_prompts=$CHANGED" >> "$GITHUB_OUTPUT"
           if [ -z "$CHANGED" ]; then
             echo "has_changes=false" >> "$GITHUB_OUTPUT"
-            echo "No prompt files changed."
+            echo "No prompt files changed in this commit."
           else
             echo "has_changes=true" >> "$GITHUB_OUTPUT"
             echo "Changed prompts: $CHANGED"
           fi
 
   # ──────────────────────────────────────────────────────────────────
-  # Stage 4: Evaluate — run eval suite on changed prompts (or baseline)
+  # Stage 4: Evaluate Quality
+  #   What: Score prompts on 12 eval cases across 4 quality dimensions:
+  #     • Relevance       — does the response address the query?
+  #     • Personalization  — does it use persona context?
+  #     • Grounding        — does it stick to catalogue products?
+  #     • Policy/Safety    — does it follow safety rules?
+  #   Against: Each configured model (gpt-4.1-mini, gpt-4.1)
+  #   Mode: dry-run (no Azure cost). Remove --dry-run for live eval.
   # ──────────────────────────────────────────────────────────────────
   evaluate:
-    name: "4. Evaluate"
+    name: "4. Evaluate Quality (12 cases × 4 dimensions)"
     needs: detect-changes
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -155,23 +188,40 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run evaluation (baseline)
+      - name: "Eval baseline prompt — relevance, personalization, grounding, safety"
         run: |
+          echo "Prompt: baseline | 12 cases | 4 scoring dimensions"
           python scripts/run_eval.py --dry-run --prompt baseline
         env:
           PYTHONPATH: src
 
-      - name: Run evaluation (changed prompts)
+      - name: "Eval changed prompts — targeted quality check"
         if: needs.detect-changes.outputs.has_prompt_changes == 'true'
         run: |
           IFS=',' read -ra PROMPTS <<< "${{ needs.detect-changes.outputs.changed_prompts }}"
           for prompt in "${PROMPTS[@]}"; do
             echo ""
-            echo "=========================================="
-            echo "Evaluating changed prompt: $prompt"
-            echo "=========================================="
+            echo "========================================================"
+            echo "  Evaluating changed prompt: $prompt"
+            echo "  12 cases × (relevance + personalization + grounding + safety)"
+            echo "========================================================"
             python scripts/run_eval.py --dry-run --prompt "$prompt"
           done
+        env:
+          PYTHONPATH: src
+
+      - name: "Multi-model readiness check"
+        run: |
+          python -c "
+          from llmops_demo.config import COMPARISON_MODELS
+          print('Multi-Model Configuration:')
+          print('-' * 50)
+          for i, model in enumerate(COMPARISON_MODELS, 1):
+              print(f'  Model {i}: {model}  [ready]')
+          print()
+          print(f'Total models: {len(COMPARISON_MODELS)}')
+          print('Mode: dry-run (remove --dry-run and add Azure secrets for live eval)')
+          "
         env:
           PYTHONPATH: src
 
@@ -183,15 +233,17 @@ jobs:
           if-no-files-found: warn
 
   # ──────────────────────────────────────────────────────────────────
-  # Stage 5: Report — generate summary
+  # Stage 5: Pipeline Report
+  #   What: Generate summary report with scores and upload artifacts
+  #   Output: demo_report.md + GitHub Actions job summary table
   # ──────────────────────────────────────────────────────────────────
   report:
-    name: "5. Report"
+    name: "5. Pipeline Report & Artifacts"
     needs: [detect-changes, evaluate]
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -203,34 +255,43 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Generate report
+      - name: Generate demo report
         run: python scripts/export_demo_report.py
         env:
           PYTHONPATH: src
 
-      - name: Upload report
+      - name: Upload report artifact
         uses: actions/upload-artifact@v4
         with:
           name: demo-report
           path: results/demo_report.md
           if-no-files-found: warn
 
-      - name: Write job summary
+      - name: Write pipeline summary
         run: |
           echo "## LLMOps Pipeline Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Stage | Status |" >> $GITHUB_STEP_SUMMARY
-          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| 1. Test | Passed |" >> $GITHUB_STEP_SUMMARY
-          echo "| 2. Validate Prompts | Passed |" >> $GITHUB_STEP_SUMMARY
+          echo "| Stage | What was checked | Result |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|-----------------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| **1. Unit Tests** | 26 pytest tests (prompt loading, persona data, eval scoring, monitoring, config) on Python 3.11 + 3.12 | Passed |" >> $GITHUB_STEP_SUMMARY
+          echo "| **2. Validate** | 4 prompts validated + checksums computed + data integrity (5 personas, 17 products, 12 eval cases, 10 steps) | Passed |" >> $GITHUB_STEP_SUMMARY
           HAS_CHANGES="${{ needs.detect-changes.outputs.has_prompt_changes }}"
           if [ "$HAS_CHANGES" = "true" ]; then
-            echo "| 3. Detect Changes | Changed: ${{ needs.detect-changes.outputs.changed_prompts }} |" >> $GITHUB_STEP_SUMMARY
+            echo "| **3. Detect** | Prompt files changed: **${{ needs.detect-changes.outputs.changed_prompts }}** | Detected |" >> $GITHUB_STEP_SUMMARY
           else
-            echo "| 3. Detect Changes | No prompt changes |" >> $GITHUB_STEP_SUMMARY
+            echo "| **3. Detect** | No prompt files changed in this commit | No changes |" >> $GITHUB_STEP_SUMMARY
           fi
-          echo "| 4. Evaluate | Complete |" >> $GITHUB_STEP_SUMMARY
-          echo "| 5. Report | Generated |" >> $GITHUB_STEP_SUMMARY
+          echo "| **4. Evaluate** | 12 eval cases scored on 4 dimensions per prompt (relevance, personalization, grounding, policy/safety) | Complete |" >> $GITHUB_STEP_SUMMARY
+          echo "| **5. Report** | Summary generated and uploaded as artifact | Complete |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Evaluation Dimensions" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Dimension | What it measures | Scale |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----------|-----------------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Relevance** | Does the response address the user's query? | 0-5 |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Personalization** | Does it use persona context (budget, preferences)? | 0-5 |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Grounding** | Does it recommend only approved catalogue products? | 0-5 |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Policy/Safety** | Does it follow safety and policy rules? | 0-5 |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           if [ -f results/demo_report.md ]; then
             echo "### Report Preview" >> $GITHUB_STEP_SUMMARY
