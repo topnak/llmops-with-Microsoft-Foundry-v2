@@ -98,6 +98,22 @@ Triggered on push/PR to `main`:
 | 4 | Evaluate Quality | 12 cases × 4 dimensions (relevance, personalization, grounding, safety) |
 | 5 | Pipeline Report | Summary table + artifact upload |
 
+### Prompt Release Pipeline (9 connected stages — with approval gate)
+
+Triggered on push to `main` when `prompts/*.txt` changes (or manual dispatch):
+
+| Stage | Name | What it does |
+|---|---|---|
+| 1 | Detect & Validate | Finds changed prompt, validates, runs tests |
+| 2 | Eval Baseline (Live) | Scores `baseline` via Foundry: 12 cases × 4 dims |
+| 3 | Eval Candidate (Live) | Scores changed prompt the same way |
+| 4 | Compare & Report | Side-by-side delta table (🟢/🔴) |
+| 5 | AI Feedback | GPT analyzes scores, suggests improvements |
+| 6 | Approval Gate | **Pauses for manual approval** |
+| 7 | Deploy to Agent | Deploys prompt to Foundry agent |
+| 8 | Post-Deploy Eval | Evaluates the live deployed agent |
+| 9 | Final Report | Full pre/post comparison + deployment confirmation |
+
 ### Other Workflows
 
 | Pipeline | Trigger | What it does |
@@ -107,6 +123,25 @@ Triggered on push/PR to `main`:
 | Prompt Change Detection | Push to main (prompts/ changed) | Targeted eval for changed prompts |
 | Foundry Smoke Test | Manual only | Live agent creation + baseline |
 
+## Comparison & Feedback Scripts
+
+```powershell
+# Compare two eval results
+python scripts/compare_eval.py \
+  --baseline results/eval_baseline.json \
+  --candidate results/eval_summary.json
+
+# Get AI feedback on prompt quality
+python scripts/ai_feedback.py \
+  --comparison results/eval_comparison.json \
+  --prompt grounded_retail
+
+# Dry-run AI feedback (no Azure calls)
+python scripts/ai_feedback.py \
+  --comparison results/eval_comparison.json \
+  --prompt grounded_retail --dry-run
+```
+
 ## Key Files
 
 | File | Purpose |
@@ -114,6 +149,8 @@ Triggered on push/PR to `main`:
 | `prompts/*.txt` | **Your main edit target** |
 | `data/eval_cases.jsonl` | Evaluation test cases |
 | `data/personas.json` | Customer personas |
+| `scripts/compare_eval.py` | Compare two eval result files |
+| `scripts/ai_feedback.py` | AI-powered prompt analysis |
 | `results/` | Generated reports (git-ignored) |
 | `.env` | Your credentials (git-ignored) |
 | `.env.example` | Credential template |

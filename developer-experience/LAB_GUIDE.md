@@ -359,32 +359,97 @@ This creates the agent in Foundry and runs a live baseline query.
 
 ---
 
+## Exercise 8 — Prompt Release Pipeline (Full Lifecycle)
+
+This exercise uses the **Prompt Release Pipeline** — a 9-stage automated
+workflow that evaluates, compares, gets AI feedback, waits for approval,
+deploys, and re-evaluates.
+
+### 8.1 Prerequisites: Create the GitHub Environment
+
+1. Go to your repo **Settings** → **Environments**
+2. Click **New environment** → name it `production`
+3. Enable **Required reviewers** → add yourself
+4. Save
+
+### 8.2 Trigger the Pipeline
+
+Push a prompt change to `main` (or use manual dispatch):
+
+```powershell
+# Edit a prompt
+notepad prompts/grounded_retail.txt
+
+# Commit and push
+git add prompts/grounded_retail.txt
+git commit -m "feat(prompt): improve grounded_retail recommendations"
+git push origin HEAD:main
+```
+
+### 8.3 Watch the 9 Stages
+
+Go to **Actions** → **Prompt Release Pipeline**. You'll see:
+
+| Stage | What happens |
+|-------|-------------|
+| 1. Detect & Validate | Identifies changed prompt, validates it, runs tests |
+| 2. Eval Baseline (Live) | Scores `baseline` prompt: 12 cases × 4 dimensions via Foundry |
+| 3. Eval Candidate (Live) | Scores your changed prompt the same way |
+| 4. Compare & Report | Side-by-side comparison table with deltas (🟢 improved / 🔴 regressed) |
+| 5. AI Feedback | GPT analyzes scores and suggests improvements |
+| 6. Approval Gate | **Pipeline pauses here** — you review scores and click **Approve** |
+| 7. Deploy to Agent | Deploys approved prompt to RetailPersonlisedAgent in Foundry |
+| 8. Post-Deploy Eval | Runs evaluation against the live deployed agent |
+| 9. Final Report | Full report: pre-deploy vs post-deploy + AI analysis |
+
+### 8.4 Review & Approve
+
+When the pipeline reaches Stage 6:
+
+1. Click the **Review deployments** button in GitHub Actions
+2. Check the **4. Compare & Report** and **5. AI Feedback** job summaries
+3. If satisfied, check `production` and click **Approve and deploy**
+4. If not satisfied, click **Reject** — the pipeline stops and nothing is deployed
+
+### 8.5 Review Final Report
+
+After Stage 9 completes, click the run → **Summary** tab to see:
+- Pre-deploy comparison (baseline vs candidate)
+- Post-deploy evaluation scores
+- Pre-deploy vs post-deploy consistency check
+- AI analysis and suggestions
+- Deployment confirmation
+
+**Checkpoint**: Full prompt release lifecycle complete! ✅
+
+---
+
 ## Summary — The LLMOps Developer Loop
 
 ```
-    ┌─────────────────────────────────────────────────┐
-    │                                                   │
-    ▼                                                   │
- Edit Prompt                                            │
-    │                                                   │
-    ▼                                                   │
- Validate & Test Locally                                │
-    │                                                   │
-    ▼                                                   │
- Run Agent & Evaluate                                   │
-    │                                                   │
-    ▼                                                   │
- Commit & Push (PR)                                     │
-    │                                                   │
-    ├──→ CI: tests + prompt validation ──→ PR gate      │
-    │                                                   │
-    ▼ (merge)                                           │
- Eval Pipeline: score quality                           │
-    │                                                   │
-    ├──→ Prompt Change Detection: targeted eval         │
-    │                                                   │
-    ▼                                                   │
- Review Results ────────────────────────────────────────┘
+    ┌──────────────────────────────────────────────────────────┐
+    │                                                            │
+    ▼                                                            │
+ Edit Prompt                                                     │
+    │                                                            │
+    ▼                                                            │
+ Validate & Test Locally                                         │
+    │                                                            │
+    ▼                                                            │
+ Run Agent & Evaluate Locally                                    │
+    │                                                            │
+    ▼                                                            │
+ Commit & Push                                                   │
+    │                                                            │
+    ├──→ LLMOps Pipeline: tests + validation ──→ PR gate         │
+    │                                                            │
+    ├──→ Prompt Release Pipeline:                                │
+    │      eval baseline → eval candidate → compare              │
+    │      → AI feedback → APPROVAL GATE → deploy                │
+    │      → post-deploy eval → final report                     │
+    │                                                            │
+    ▼                                                            │
+ Review Results ─────────────────────────────────────────────────┘
 ```
 
 **You are now operating like an LLMOps engineer.** Every prompt change goes

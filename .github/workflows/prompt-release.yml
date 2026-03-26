@@ -1,0 +1,492 @@
+# Prompt Release Pipeline — Full LLMOps lifecycle for prompt changes.
+#
+# Triggers when a prompt file is modified. Runs the complete cycle:
+#   eval baseline → eval candidate → compare → AI feedback → approval → deploy → post-deploy eval → report
+#
+# Pipeline graph:
+#
+#   ┌─────────────┐   ┌──────────────┐   ┌──────────────┐   ┌──────────────┐   ┌──────────────┐
+#   │ 1. Detect & │ → │ 2. Eval      │ → │ 3. Eval      │ → │ 4. Compare & │ → │ 5. AI        │
+#   │ Validate    │   │ Baseline     │   │ Candidate    │   │ Report       │   │ Feedback     │
+#   └─────────────┘   └──────────────┘   └──────────────┘   └──────────────┘   └──────────────┘
+#                                                                                      │
+#   ┌─────────────┐   ┌──────────────┐   ┌──────────────┐   ┌──────────────┐           │
+#   │ 9. Final    │ ← │ 8. Post-     │ ← │ 7. Deploy to │ ← │ 6. Approval  │ ←─────────┘
+#   │ Report      │   │ Deploy Eval  │   │ Agent        │   │ Gate         │
+#   └─────────────┘   └──────────────┘   └──────────────┘   └──────────────┘
+#
+# PREREQUISITES:
+#   1. GitHub Secrets: AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_TENANT_ID, AZURE_EXISTING_AIPROJECT_ENDPOINT
+#   2. GitHub Environment: Create "production" environment in repo Settings → Environments
+#      with required reviewers for the approval gate (Stage 6).
+
+name: "Prompt Release Pipeline"
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "prompts/*.txt"
+  workflow_dispatch:
+    inputs:
+      prompt_name:
+        description: "Prompt variant to evaluate and deploy (e.g. grounded_retail)"
+        required: false
+        type: string
+
+env:
+  PYTHONPATH: src
+  AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+  AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+  AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  AZURE_EXISTING_AIPROJECT_ENDPOINT: ${{ secrets.AZURE_EXISTING_AIPROJECT_ENDPOINT }}
+
+jobs:
+  # ──────────────────────────────────────────────────────────────────
+  # Stage 1: Detect which prompt files changed & validate them
+  # ──────────────────────────────────────────────────────────────────
+  detect:
+    name: "1. Detect & Validate Changed Prompts"
+    runs-on: ubuntu-latest
+    outputs:
+      changed_prompt: ${{ steps.resolve.outputs.prompt_name }}
+      has_changes: ${{ steps.resolve.outputs.has_changes }}
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 2
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Resolve prompt to evaluate
+        id: resolve
+        run: |
+          # If manually triggered with a specific prompt, use that
+          if [ -n "${{ github.event.inputs.prompt_name }}" ]; then
+            PROMPT="${{ github.event.inputs.prompt_name }}"
+            echo "prompt_name=$PROMPT" >> "$GITHUB_OUTPUT"
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+            echo "Manual trigger: evaluating prompt '$PROMPT'"
+            exit 0
+          fi
+
+          # Otherwise detect from git diff
+          if git rev-parse HEAD~1 >/dev/null 2>&1; then
+            CHANGED=$(git diff --name-only HEAD~1 HEAD -- prompts/ | head -1)
+          else
+            CHANGED=$(ls prompts/*.txt 2>/dev/null | head -1)
+          fi
+
+          if [ -z "$CHANGED" ]; then
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            echo "prompt_name=" >> "$GITHUB_OUTPUT"
+            echo "No prompt files changed."
+          else
+            PROMPT_NAME=$(basename "$CHANGED" .txt)
+            echo "prompt_name=$PROMPT_NAME" >> "$GITHUB_OUTPUT"
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+            echo "Changed prompt detected: $PROMPT_NAME"
+          fi
+
+      - name: Validate changed prompt
+        if: steps.resolve.outputs.has_changes == 'true'
+        run: |
+          PROMPT="${{ steps.resolve.outputs.prompt_name }}"
+          python -c "
+          from llmops_demo.prompt_manager import validate_prompt, prompt_checksum
+          ok, issues = validate_prompt('$PROMPT')
+          cs = prompt_checksum('$PROMPT')
+          print(f'Prompt: $PROMPT')
+          print(f'Valid: {ok}')
+          print(f'Checksum: {cs}')
+          assert ok, f'Prompt validation failed: {issues}'
+          print('Validation passed.')
+          "
+
+      - name: Run unit tests
+        run: pytest tests/ -v --tb=short
+
+  # ──────────────────────────────────────────────────────────────────
+  # Stage 2: Evaluate the BASELINE prompt (live Foundry calls)
+  # ──────────────────────────────────────────────────────────────────
+  eval-baseline:
+    name: "2. Evaluate Baseline Prompt (Live)"
+    needs: detect
+    if: needs.detect.outputs.has_changes == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: "Eval baseline: 12 cases × 4 dimensions"
+        run: |
+          echo "Running LIVE evaluation of baseline prompt..."
+          echo "12 eval cases × (relevance + personalization + grounding + policy_safety)"
+          python scripts/run_eval.py --prompt baseline
+
+      - name: Save baseline results
+        run: cp results/eval_summary.json results/eval_baseline.json
+
+      - name: Upload baseline results
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-baseline
+          path: results/eval_baseline.json
+
+  # ──────────────────────────────────────────────────────────────────
+  # Stage 3: Evaluate the CANDIDATE prompt (live Foundry calls)
+  # ──────────────────────────────────────────────────────────────────
+  eval-candidate:
+    name: "3. Evaluate Candidate Prompt (Live)"
+    needs: [detect, eval-baseline]
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: "Eval candidate: ${{ needs.detect.outputs.changed_prompt }}"
+        run: |
+          PROMPT="${{ needs.detect.outputs.changed_prompt }}"
+          echo "Running LIVE evaluation of candidate prompt: $PROMPT"
+          echo "12 eval cases × (relevance + personalization + grounding + policy_safety)"
+          python scripts/run_eval.py --prompt "$PROMPT"
+
+      - name: Save candidate results
+        run: cp results/eval_summary.json results/eval_candidate.json
+
+      - name: Upload candidate results
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-candidate
+          path: results/eval_candidate.json
+
+  # ──────────────────────────────────────────────────────────────────
+  # Stage 4: Compare baseline vs candidate and generate report
+  # ──────────────────────────────────────────────────────────────────
+  compare:
+    name: "4. Compare Scores & Report"
+    needs: [detect, eval-baseline, eval-candidate]
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Download baseline results
+        uses: actions/download-artifact@v4
+        with:
+          name: eval-baseline
+          path: results/
+
+      - name: Download candidate results
+        uses: actions/download-artifact@v4
+        with:
+          name: eval-candidate
+          path: results/
+
+      - name: "Compare: baseline vs ${{ needs.detect.outputs.changed_prompt }}"
+        run: |
+          PROMPT="${{ needs.detect.outputs.changed_prompt }}"
+          python scripts/compare_eval.py \
+            --baseline results/eval_baseline.json \
+            --candidate results/eval_candidate.json \
+            --baseline-name "baseline" \
+            --candidate-name "$PROMPT" \
+            --output results/eval_comparison.md
+
+      - name: Write comparison to job summary
+        run: |
+          cat results/eval_comparison.md >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload comparison artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-comparison
+          path: |
+            results/eval_comparison.md
+            results/eval_comparison.json
+
+  # ──────────────────────────────────────────────────────────────────
+  # Stage 5: AI-powered feedback on the prompt
+  # ──────────────────────────────────────────────────────────────────
+  ai-feedback:
+    name: "5. AI Feedback & Suggestions"
+    needs: [detect, compare]
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Download comparison results
+        uses: actions/download-artifact@v4
+        with:
+          name: eval-comparison
+          path: results/
+
+      - name: "Get AI analysis of scores"
+        run: |
+          PROMPT="${{ needs.detect.outputs.changed_prompt }}"
+          echo "Requesting AI feedback on prompt: $PROMPT"
+          python scripts/ai_feedback.py \
+            --comparison results/eval_comparison.json \
+            --prompt "$PROMPT" \
+            --output results/ai_feedback.md
+
+      - name: Write AI feedback to job summary
+        run: |
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          cat results/ai_feedback.md >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload AI feedback
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-feedback
+          path: results/ai_feedback.md
+
+  # ──────────────────────────────────────────────────────────────────
+  # Stage 6: Manual approval gate
+  #   Requires a GitHub Environment "production" with required reviewers.
+  #   Pipeline pauses here until a reviewer approves.
+  # ──────────────────────────────────────────────────────────────────
+  approval:
+    name: "6. Approval Gate"
+    needs: [detect, ai-feedback]
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Approval confirmed
+        run: |
+          echo "Deployment approved for prompt: ${{ needs.detect.outputs.changed_prompt }}"
+          echo "Proceeding to deploy to Foundry agent..."
+
+  # ──────────────────────────────────────────────────────────────────
+  # Stage 7: Deploy the approved prompt to the Foundry agent
+  # ──────────────────────────────────────────────────────────────────
+  deploy:
+    name: "7. Deploy Prompt to Agent"
+    needs: [detect, approval]
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: "Deploy prompt '${{ needs.detect.outputs.changed_prompt }}' to agent"
+        run: |
+          PROMPT="${{ needs.detect.outputs.changed_prompt }}"
+          echo "Deploying prompt '$PROMPT' to RetailPersonlisedAgent..."
+          python scripts/update_agent_version.py --prompt "$PROMPT"
+
+      - name: Upload deployment result
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy-result
+          path: results/agent_version_result.json
+
+  # ──────────────────────────────────────────────────────────────────
+  # Stage 8: Post-deployment evaluation against the live agent
+  # ──────────────────────────────────────────────────────────────────
+  post-deploy-eval:
+    name: "8. Post-Deploy Agent Evaluation"
+    needs: [detect, deploy]
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: "Post-deploy eval: 12 cases × 4 dimensions"
+        run: |
+          PROMPT="${{ needs.detect.outputs.changed_prompt }}"
+          echo "Running post-deployment evaluation with prompt: $PROMPT"
+          python scripts/run_eval.py --prompt "$PROMPT"
+
+      - name: Save post-deploy results
+        run: cp results/eval_summary.json results/eval_post_deploy.json
+
+      - name: Upload post-deploy results
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-post-deploy
+          path: |
+            results/eval_post_deploy.json
+            results/eval_summary.md
+
+  # ──────────────────────────────────────────────────────────────────
+  # Stage 9: Final report — pre-deploy vs post-deploy + confirmation
+  # ──────────────────────────────────────────────────────────────────
+  final-report:
+    name: "9. Final Report"
+    needs: [detect, eval-baseline, eval-candidate, compare, ai-feedback, deploy, post-deploy-eval]
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Generate final report
+        run: |
+          PROMPT="${{ needs.detect.outputs.changed_prompt }}"
+
+          echo "## Prompt Release Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Prompt**: \`$PROMPT\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Date**: $(date -u '+%Y-%m-%d %H:%M UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Stage summary table
+          echo "### Pipeline Stages" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Stage | Result |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| 1. Detect & Validate | Passed |" >> $GITHUB_STEP_SUMMARY
+          echo "| 2. Eval Baseline (live) | Completed |" >> $GITHUB_STEP_SUMMARY
+          echo "| 3. Eval Candidate (live) | Completed |" >> $GITHUB_STEP_SUMMARY
+          echo "| 4. Compare Scores | Completed |" >> $GITHUB_STEP_SUMMARY
+          echo "| 5. AI Feedback | Generated |" >> $GITHUB_STEP_SUMMARY
+          echo "| 6. Approval Gate | Approved |" >> $GITHUB_STEP_SUMMARY
+          echo "| 7. Deploy to Agent | Deployed |" >> $GITHUB_STEP_SUMMARY
+          echo "| 8. Post-Deploy Eval | Completed |" >> $GITHUB_STEP_SUMMARY
+          echo "| 9. Final Report | This report |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Pre-deploy comparison
+          echo "### Pre-Deploy: Baseline vs Candidate" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f artifacts/eval-comparison/eval_comparison.md ]; then
+            cat artifacts/eval-comparison/eval_comparison.md >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Post-deploy scores
+          echo "### Post-Deploy Agent Evaluation" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f artifacts/eval-post-deploy/eval_post_deploy.json ]; then
+            python -c "
+          import json
+          with open('artifacts/eval-post-deploy/eval_post_deploy.json') as f:
+              data = json.load(f)
+          avgs = data.get('averages', {})
+          print('| Dimension | Post-Deploy Score |')
+          print('|-----------|------------------|')
+          for dim, score in avgs.items():
+              print(f'| {dim} | {score:.2f} |')
+          print()
+          print(f'**Total eval cases**: {data.get(\"count\", 0)}')
+          " >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Compare candidate vs post-deploy
+          echo "### Candidate (Pre-Deploy) vs Post-Deploy" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f artifacts/eval-candidate/eval_candidate.json ] && [ -f artifacts/eval-post-deploy/eval_post_deploy.json ]; then
+            python scripts/compare_eval.py \
+              --baseline artifacts/eval-candidate/eval_candidate.json \
+              --candidate artifacts/eval-post-deploy/eval_post_deploy.json \
+              --baseline-name "candidate (pre-deploy)" \
+              --candidate-name "post-deploy" \
+              --output results/eval_pre_vs_post.md
+            cat results/eval_pre_vs_post.md >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # AI feedback
+          echo "### AI Analysis" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f artifacts/ai-feedback/ai_feedback.md ]; then
+            cat artifacts/ai-feedback/ai_feedback.md >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "### Deployment Confirmation" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Agent **RetailPersonlisedAgent** has been updated with prompt \`$PROMPT\`." >> $GITHUB_STEP_SUMMARY
+          echo "Post-deployment evaluation completed successfully." >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload all reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: final-report
+          path: results/

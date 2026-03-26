@@ -206,6 +206,24 @@ A connected 5-stage pipeline that runs on every push/PR to `main`:
 | **Grounding** | Does it recommend only approved catalogue products? | 0–5 |
 | **Policy/Safety** | Does it follow safety and policy rules? | 0–5 |
 
+### Prompt Release Pipeline (`prompt-release.yml`)
+
+A 9-stage connected pipeline that triggers when prompt files change. Includes a **manual approval gate** before deploying to the live Foundry agent:
+
+```
+┌─────────────┐   ┌────────────┐   ┌────────────┐   ┌────────────┐   ┌────────────┐
+│ 1. Detect & │ → │ 2. Eval    │ → │ 3. Eval    │ → │ 4. Compare │ → │ 5. AI      │
+│ Validate    │   │ Baseline   │   │ Candidate  │   │ & Report   │   │ Feedback   │
+└─────────────┘   └────────────┘   └────────────┘   └────────────┘   └────────────┘
+                                                                            │
+┌─────────────┐   ┌────────────┐   ┌────────────┐   ┌────────────┐         │
+│ 9. Final    │ ← │ 8. Post-   │ ← │ 7. Deploy  │ ← │ 6. Approval│ ←──────┘
+│ Report      │   │ Deploy Eval│   │ to Agent   │   │ Gate       │
+└─────────────┘   └────────────┘   └────────────┘   └────────────┘
+```
+
+**Requires**: GitHub Environment `production` with required reviewers (see below).
+
 ### Other Workflows
 
 | Workflow | Trigger | Purpose |
@@ -214,6 +232,16 @@ A connected 5-stage pipeline that runs on every push/PR to `main`:
 | `eval.yml` | Push to main, manual | Run evaluation, upload artifacts |
 | `foundry-smoke.yml` | Manual only | Live Foundry connectivity validation |
 | `prompt-change.yml` | Push to main | Targeted eval for changed prompt files |
+
+### Setting Up the Approval Gate
+
+To enable Stage 6 (manual approval before deployment):
+
+1. Go to **Settings** → **Environments** in your GitHub repository
+2. Click **New environment** → name it `production`
+3. Under **Environment protection rules**, enable **Required reviewers**
+4. Add yourself (or your team) as a reviewer
+5. Save
 
 ---
 
