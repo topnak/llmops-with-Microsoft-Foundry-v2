@@ -1,16 +1,25 @@
 #!/usr/bin/env python3
-"""Run evaluation using azure-ai-evaluation SDK and upload results to Foundry portal.
+"""Run cloud evaluation via the OpenAI Evals API on the Foundry project.
 
-This script creates evaluations that appear under the Agent's Evaluation tab
-in the Microsoft Foundry portal. It uses Foundry built-in evaluators
-(RelevanceEvaluator, CoherenceEvaluator, FluencyEvaluator) which are
-LLM-as-judge evaluators backed by an Azure OpenAI deployment.
+Uses the correct Foundry cloud evaluation API (client.evals.create +
+client.evals.runs.create) so that results appear under the Agent's
+Evaluation tab in the Microsoft Foundry portal.
+
+Reference: https://learn.microsoft.com/en-us/azure/foundry/how-to/develop/cloud-evaluation
+
+Supports two modes:
+  Agent Target — sends queries to the RetailPersonlisedAgent at runtime and
+                 evaluates its responses (default).
+  Dataset      — evaluates pre-computed query+response pairs from a JSONL.
 
 Usage:
-    # Full run: invoke agent + evaluate + upload to Foundry
+    # Agent target evaluation (runs agent live, results appear under Agent)
     python scripts/foundry_eval.py --prompt aussie_mate
 
-    # Dry-run: generate data only (no Foundry calls, no upload)
+    # Dataset evaluation (pre-computed responses)
+    python scripts/foundry_eval.py --prompt aussie_mate --mode dataset
+
+    # Dry-run (just prints config, no Foundry calls)
     python scripts/foundry_eval.py --prompt aussie_mate --dry-run
 """
 
@@ -18,132 +27,202 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
-import sys
-import tempfile
+import time
 
-from azure.identity import DefaultAzureCredential
+from openai.types.eval_create_params import DataSourceConfigCustom
+from openai.types.evals.create_eval_jsonl_run_data_source_param import (
+    CreateEvalJSONLRunDataSourceParam,
+    SourceFileContent,
+    SourceFileContentContent,
+    SourceFileID,
+)
 
 from llmops_demo.logging_config import setup_logging
 from llmops_demo.config import (
     AZURE_EXISTING_AIPROJECT_ENDPOINT,
     PRIMARY_MODEL,
+    AGENT_NAME,
     RESULTS_DIR,
 )
 from llmops_demo.evaluation import load_eval_cases
-from llmops_demo.agent_runner import run_query
+from llmops_demo.foundry_client import create_project_client, get_openai_client
 
 
-def build_eval_dataset(
+def run_agent_target_evaluation(
+    client,
     cases: list[dict],
     prompt_name: str,
     model: str,
-    dry_run: bool = False,
-) -> list[dict]:
-    """Invoke the agent for each eval case and build the evaluation dataset.
+    agent_name: str,
+) -> dict:
+    """Run an Agent Target Evaluation via the cloud Evals API.
 
-    Returns a list of dicts with keys: query, response, context.
+    Sends queries to the Foundry agent at runtime and evaluates its
+    responses using built-in evaluators.  Results show under the agent's
+    Evaluation tab in the Foundry portal.
     """
-    rows = []
-    for i, case in enumerate(cases, 1):
-        query = case["user_input"]
-        print(f"[{i}/{len(cases)}] {case['id']}: {query[:60]}...")
-
-        if dry_run:
-            response_text = "(dry-run — no agent call)"
-        else:
-            try:
-                result = run_query(
-                    query,
-                    prompt_name=prompt_name,
-                    model=model,
-                    persona_id=case.get("persona_id"),
-                )
-                response_text = result.response_text
-            except Exception as exc:
-                print(f"   Error: {exc}")
-                response_text = f"(error: {exc})"
-
-        # Build context from expected traits for grounding evaluators
-        context = "; ".join(case.get("expected_traits", []))
-
-        rows.append({
-            "query": query,
-            "response": response_text,
-            "context": context,
+    # -- 1. Upload eval cases as a dataset ------------------------------------
+    data_rows = []
+    for case in cases:
+        data_rows.append({
+            "query": case["user_input"],
         })
-    return rows
 
-
-def run_foundry_evaluation(
-    dataset_rows: list[dict],
-    prompt_name: str,
-    model: str,
-    dry_run: bool = False,
-) -> dict | None:
-    """Run azure-ai-evaluation evaluate() with Foundry built-in evaluators.
-
-    When not in dry-run mode, results are uploaded to the Foundry portal
-    and will appear under the Agent's Evaluation tab.
-    """
-    from azure.ai.evaluation import (
-        evaluate,
-        RelevanceEvaluator,
-        CoherenceEvaluator,
-        FluencyEvaluator,
-        AzureOpenAIModelConfiguration,
-    )
-
-    # Write dataset to a temporary JSONL file
-    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    project_client = create_project_client()
+    dataset_name = f"eval-{prompt_name}"
     data_path = RESULTS_DIR / "foundry_eval_data.jsonl"
+    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     with open(data_path, "w", encoding="utf-8") as f:
-        for row in dataset_rows:
+        for row in data_rows:
             f.write(json.dumps(row) + "\n")
-    print(f"\nDataset written: {data_path} ({len(dataset_rows)} rows)")
 
-    if dry_run:
-        print("Dry-run mode — skipping Foundry evaluation upload.")
-        return None
+    print(f"Uploading dataset '{dataset_name}' ({len(data_rows)} rows)...")
+    dataset = project_client.datasets.upload_file(
+        name=dataset_name,
+        version=str(int(time.time())),
+        file_path=str(data_path),
+    )
+    data_id = dataset.id
+    print(f"  Dataset uploaded: {data_id}")
 
-    # Azure OpenAI endpoint for the LLM judge
-    base_endpoint = AZURE_EXISTING_AIPROJECT_ENDPOINT.split("/api/projects/")[0]
-
-    # Get a bearer token for Azure OpenAI — works around a Python 3.11
-    # compatibility issue with passing credential objects to the model config.
-    credential = DefaultAzureCredential()
-    token = credential.get_token("https://cognitiveservices.azure.com/.default").token
-
-    model_config = AzureOpenAIModelConfiguration(
-        azure_deployment=model,
-        azure_endpoint=base_endpoint,
-        api_key=token,
+    # -- 2. Define data schema -----------------------------------------------
+    data_source_config = DataSourceConfigCustom(
+        type="custom",
+        item_schema={
+            "type": "object",
+            "properties": {
+                "query": {"type": "string"},
+            },
+            "required": ["query"],
+        },
+        include_sample_schema=True,
     )
 
-    # Set up built-in evaluators (LLM-as-judge)
-    evaluators = {
-        "relevance": RelevanceEvaluator(model_config),
-        "coherence": CoherenceEvaluator(model_config),
-        "fluency": FluencyEvaluator(model_config),
+    # -- 3. Define built-in evaluators ----------------------------------------
+    testing_criteria = [
+        {
+            "type": "azure_ai_evaluator",
+            "name": "coherence",
+            "evaluator_name": "builtin.coherence",
+            "initialization_parameters": {
+                "deployment_name": model,
+            },
+            "data_mapping": {
+                "query": "{{item.query}}",
+                "response": "{{sample.output_text}}",
+            },
+        },
+        {
+            "type": "azure_ai_evaluator",
+            "name": "relevance",
+            "evaluator_name": "builtin.relevance",
+            "initialization_parameters": {
+                "deployment_name": model,
+            },
+            "data_mapping": {
+                "query": "{{item.query}}",
+                "response": "{{sample.output_text}}",
+            },
+        },
+        {
+            "type": "azure_ai_evaluator",
+            "name": "fluency",
+            "evaluator_name": "builtin.fluency",
+            "initialization_parameters": {
+                "deployment_name": model,
+            },
+            "data_mapping": {
+                "query": "{{item.query}}",
+                "response": "{{sample.output_text}}",
+            },
+        },
+        {
+            "type": "azure_ai_evaluator",
+            "name": "violence",
+            "evaluator_name": "builtin.violence",
+            "data_mapping": {
+                "query": "{{item.query}}",
+                "response": "{{sample.output_text}}",
+            },
+        },
+    ]
+
+    # -- 4. Create evaluation -------------------------------------------------
+    eval_name = f"prompt-release-{prompt_name}"
+    print(f"\nCreating evaluation: {eval_name}")
+    print(f"  Agent target: {agent_name}")
+    print(f"  Judge model: {model}")
+    print(f"  Evaluators: coherence, relevance, fluency, violence")
+
+    eval_object = client.evals.create(
+        name=eval_name,
+        data_source_config=data_source_config,
+        testing_criteria=testing_criteria,
+    )
+    print(f"  Eval created: {eval_object.id}")
+
+    # -- 5. Create a run targeting the agent ----------------------------------
+    input_messages = {
+        "type": "template",
+        "template": [
+            {
+                "type": "message",
+                "role": "user",
+                "content": {
+                    "type": "input_text",
+                    "text": "{{item.query}}",
+                },
+            }
+        ],
     }
 
-    evaluation_name = f"prompt-release-{prompt_name}"
+    target = {
+        "type": "azure_ai_agent",
+        "name": agent_name,
+    }
 
-    print(f"\nRunning Foundry evaluation: {evaluation_name}")
-    print(f"  Evaluators: {', '.join(evaluators.keys())}")
-    print(f"  Judge model: {model}")
-    print(f"  Uploading to: {AZURE_EXISTING_AIPROJECT_ENDPOINT}")
-
-    eval_result = evaluate(
-        data=str(data_path),
-        evaluators=evaluators,
-        evaluation_name=evaluation_name,
-        azure_ai_project=AZURE_EXISTING_AIPROJECT_ENDPOINT,
-        tags={
-            "prompt_variant": prompt_name,
-            "model": model,
-            "pipeline": "prompt-release",
+    data_source = {
+        "type": "azure_ai_target_completions",
+        "source": {
+            "type": "file_id",
+            "id": data_id,
         },
+        "input_messages": input_messages,
+        "target": target,
+    }
+
+    run_name = f"{prompt_name}-run-{int(time.time())}"
+    print(f"\nCreating eval run: {run_name}")
+    eval_run = client.evals.runs.create(
+        eval_id=eval_object.id,
+        name=run_name,
+        data_source=data_source,
+    )
+    print(f"  Run created: {eval_run.id}")
+
+    # -- 6. Poll for completion -----------------------------------------------
+    print("\nPolling for completion...")
+    while True:
+        run = client.evals.runs.retrieve(
+            run_id=eval_run.id, eval_id=eval_object.id
+        )
+        if run.status in ("completed", "failed", "cancelled"):
+            break
+        print(f"  Status: {run.status} — waiting...")
+        time.sleep(10)
+
+    if run.status == "failed":
+        print(f"\nEvaluation run FAILED: {run.error}")
+        return {"status": "failed", "error": str(run.error)}
+
+    # -- 7. Retrieve and display results --------------------------------------
+    print(f"\nEvaluation run completed!")
+    print(f"  Report URL: {getattr(run, 'report_url', 'N/A')}")
+
+    output_items = list(
+        client.evals.runs.output_items.list(
+            run_id=run.id, eval_id=eval_object.id
+        )
     )
 
     # Save results locally
@@ -151,10 +230,15 @@ def run_foundry_evaluation(
     with open(result_path, "w", encoding="utf-8") as f:
         json.dump(
             {
-                "evaluation_name": evaluation_name,
+                "eval_id": eval_object.id,
+                "run_id": run.id,
+                "eval_name": eval_name,
                 "prompt_variant": prompt_name,
+                "agent_name": agent_name,
                 "model": model,
-                "metrics": dict(eval_result.get("metrics", {})),
+                "status": run.status,
+                "result_counts": getattr(run, "result_counts", None),
+                "report_url": getattr(run, "report_url", None),
             },
             f,
             indent=2,
@@ -163,41 +247,226 @@ def run_foundry_evaluation(
     print(f"\nResults saved: {result_path}")
 
     # Print summary
-    metrics = eval_result.get("metrics", {})
     print("\n" + "=" * 50)
-    print("FOUNDRY EVALUATION RESULTS")
+    print("FOUNDRY CLOUD EVALUATION RESULTS")
     print("=" * 50)
-    for name, value in metrics.items():
-        print(f"  {name}: {value}")
+    print(f"  Eval ID:  {eval_object.id}")
+    print(f"  Run ID:   {run.id}")
+    print(f"  Status:   {run.status}")
+    result_counts = getattr(run, "result_counts", None)
+    if result_counts:
+        print(f"  Results:  {result_counts}")
 
-    return eval_result
+    return {
+        "eval_id": eval_object.id,
+        "run_id": run.id,
+        "status": run.status,
+    }
+
+
+def run_dataset_evaluation(
+    client,
+    project_client,
+    cases: list[dict],
+    prompt_name: str,
+    model: str,
+) -> dict:
+    """Run a Dataset Evaluation with pre-computed responses.
+
+    Invokes the agent locally, uploads query+response pairs, and runs
+    built-in evaluators on the static data.
+    """
+    from llmops_demo.agent_runner import run_query
+
+    # -- 1. Generate responses ------------------------------------------------
+    data_rows = []
+    for i, case in enumerate(cases, 1):
+        query = case["user_input"]
+        print(f"[{i}/{len(cases)}] {case['id']}: {query[:60]}...")
+        try:
+            result = run_query(
+                query,
+                prompt_name=prompt_name,
+                model=model,
+                persona_id=case.get("persona_id"),
+            )
+            response_text = result.response_text
+        except Exception as exc:
+            print(f"   Error: {exc}")
+            response_text = f"(error: {exc})"
+        data_rows.append({"query": query, "response": response_text})
+
+    # -- 2. Upload dataset ----------------------------------------------------
+    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    data_path = RESULTS_DIR / "foundry_eval_data.jsonl"
+    with open(data_path, "w", encoding="utf-8") as f:
+        for row in data_rows:
+            f.write(json.dumps(row) + "\n")
+
+    dataset_name = f"eval-dataset-{prompt_name}"
+    print(f"\nUploading dataset '{dataset_name}' ({len(data_rows)} rows)...")
+    dataset = project_client.datasets.upload_file(
+        name=dataset_name,
+        version=str(int(time.time())),
+        file_path=str(data_path),
+    )
+    data_id = dataset.id
+    print(f"  Dataset uploaded: {data_id}")
+
+    # -- 3. Define schema and evaluators --------------------------------------
+    data_source_config = DataSourceConfigCustom(
+        type="custom",
+        item_schema={
+            "type": "object",
+            "properties": {
+                "query": {"type": "string"},
+                "response": {"type": "string"},
+            },
+            "required": ["query", "response"],
+        },
+    )
+
+    testing_criteria = [
+        {
+            "type": "azure_ai_evaluator",
+            "name": "coherence",
+            "evaluator_name": "builtin.coherence",
+            "initialization_parameters": {"deployment_name": model},
+            "data_mapping": {
+                "query": "{{item.query}}",
+                "response": "{{item.response}}",
+            },
+        },
+        {
+            "type": "azure_ai_evaluator",
+            "name": "relevance",
+            "evaluator_name": "builtin.relevance",
+            "initialization_parameters": {"deployment_name": model},
+            "data_mapping": {
+                "query": "{{item.query}}",
+                "response": "{{item.response}}",
+            },
+        },
+        {
+            "type": "azure_ai_evaluator",
+            "name": "fluency",
+            "evaluator_name": "builtin.fluency",
+            "initialization_parameters": {"deployment_name": model},
+            "data_mapping": {
+                "query": "{{item.query}}",
+                "response": "{{item.response}}",
+            },
+        },
+        {
+            "type": "azure_ai_evaluator",
+            "name": "violence",
+            "evaluator_name": "builtin.violence",
+            "data_mapping": {
+                "query": "{{item.query}}",
+                "response": "{{item.response}}",
+            },
+        },
+    ]
+
+    # -- 4. Create eval and run -----------------------------------------------
+    eval_name = f"dataset-eval-{prompt_name}"
+    print(f"\nCreating dataset evaluation: {eval_name}")
+
+    eval_object = client.evals.create(
+        name=eval_name,
+        data_source_config=data_source_config,
+        testing_criteria=testing_criteria,
+    )
+
+    eval_run = client.evals.runs.create(
+        eval_id=eval_object.id,
+        name=f"{prompt_name}-dataset-{int(time.time())}",
+        data_source=CreateEvalJSONLRunDataSourceParam(
+            type="jsonl",
+            source=SourceFileID(type="file_id", id=data_id),
+        ),
+    )
+
+    # -- 5. Poll for completion -----------------------------------------------
+    print("\nPolling for completion...")
+    while True:
+        run = client.evals.runs.retrieve(
+            run_id=eval_run.id, eval_id=eval_object.id
+        )
+        if run.status in ("completed", "failed", "cancelled"):
+            break
+        print(f"  Status: {run.status} — waiting...")
+        time.sleep(10)
+
+    if run.status == "failed":
+        print(f"\nEvaluation run FAILED: {run.error}")
+        return {"status": "failed", "error": str(run.error)}
+
+    print(f"\nEvaluation completed! Report: {getattr(run, 'report_url', 'N/A')}")
+
+    # Save results
+    result_path = RESULTS_DIR / "foundry_eval_result.json"
+    with open(result_path, "w", encoding="utf-8") as f:
+        json.dump(
+            {
+                "eval_id": eval_object.id,
+                "run_id": run.id,
+                "eval_name": eval_name,
+                "prompt_variant": prompt_name,
+                "status": run.status,
+                "report_url": getattr(run, "report_url", None),
+            },
+            f,
+            indent=2,
+            default=str,
+        )
+    print(f"Results saved: {result_path}")
+    return {"eval_id": eval_object.id, "run_id": run.id, "status": run.status}
 
 
 def main() -> None:
     setup_logging()
 
     parser = argparse.ArgumentParser(
-        description="Run Foundry portal evaluation (appears under Agent > Evaluation tab)."
+        description="Run Foundry cloud evaluation (appears under Agent > Evaluation tab)."
     )
     parser.add_argument("--prompt", default="baseline", help="Prompt variant name.")
-    parser.add_argument("--model", default=PRIMARY_MODEL, help="Model deployment for agent & judge.")
+    parser.add_argument("--model", default=PRIMARY_MODEL, help="Model deployment for judge.")
+    parser.add_argument("--agent", default=AGENT_NAME, help="Foundry agent name.")
+    parser.add_argument(
+        "--mode",
+        choices=["agent", "dataset"],
+        default="agent",
+        help="'agent' = send queries to agent at runtime; 'dataset' = pre-compute responses.",
+    )
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Generate dataset only, no Foundry calls or upload.",
+        help="Print config only, no Foundry calls.",
     )
     args = parser.parse_args()
 
     cases = load_eval_cases()
     print(f"Loaded {len(cases)} evaluation cases.")
-    print(f"Prompt: {args.prompt} | Model: {args.model}")
+    print(f"Prompt: {args.prompt} | Model: {args.model} | Mode: {args.mode}")
+    print(f"Agent: {args.agent}")
     print("-" * 50)
 
-    # Step 1: Generate agent responses
-    dataset = build_eval_dataset(cases, args.prompt, args.model, args.dry_run)
+    if args.dry_run:
+        print("Dry-run mode — no Foundry calls will be made.")
+        return
 
-    # Step 2: Run Foundry evaluation with built-in evaluators
-    run_foundry_evaluation(dataset, args.prompt, args.model, args.dry_run)
+    project_client = create_project_client()
+    client = get_openai_client(project_client)
+
+    if args.mode == "agent":
+        run_agent_target_evaluation(
+            client, cases, args.prompt, args.model, args.agent,
+        )
+    else:
+        run_dataset_evaluation(
+            client, project_client, cases, args.prompt, args.model,
+        )
 
 
 if __name__ == "__main__":
