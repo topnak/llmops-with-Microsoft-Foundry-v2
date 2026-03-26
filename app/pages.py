@@ -135,7 +135,7 @@ def render_step_1(step: dict):
         col1, col2, col3, col4 = st.columns(4)
         col1.metric("\U0001f916 Agent", AGENT_NAME)
         col2.metric("\u26a1 Model", PRIMARY_MODEL)
-        col3.metric("\U0001f4cb Steps", "10")
+        col3.metric("\U0001f4cb Steps", "13")
         col4.metric("\u2601\ufe0f Project", _project_display_name())
 
         if st.button("\u2705 Verify Foundry Connection", key="verify_conn_btn"):
@@ -163,7 +163,7 @@ evaluation \u2192 monitoring \u2192 governance \u2192 CI/CD automation.
         col1, col2, col3, col4 = st.columns(4)
         col1.metric("\U0001f916 Agent", AGENT_NAME)
         col2.metric("\u26a1 Primary Model", PRIMARY_MODEL)
-        col3.metric("\U0001f4cb Demo Steps", "10")
+        col3.metric("\U0001f4cb Demo Steps", "13")
         col4.metric("\u2601\ufe0f Project", _project_display_name())
 
     _show_presenter_note(step)
@@ -210,6 +210,44 @@ def render_step_2(step: dict):
         st.subheader("All Prompt Checksums")
         checksums = all_prompt_checksums()
         _safe_json(checksums)
+
+    # --- Submit New Instruction / Prompt ---
+    if _is_hands_on():
+        st.divider()
+        st.subheader("📝 Create New Prompt / Instruction")
+        with st.expander("Create a new prompt variant", expanded=False):
+            new_name = st.text_input(
+                "Prompt name (no extension, e.g. `my_custom_prompt`)",
+                key="new_prompt_name",
+            )
+            new_text = st.text_area(
+                "Prompt content",
+                height=200,
+                key="new_prompt_text",
+                placeholder="You are a Retail Personalization Assistant for Australia...",
+            )
+            if st.button("Save Prompt", key="save_new_prompt_btn"):
+                if not new_name or not new_name.strip():
+                    st.error("Please enter a prompt name.")
+                elif not new_text or not new_text.strip():
+                    st.error("Please enter prompt content.")
+                else:
+                    import re as _re
+                    clean_name = _re.sub(r"[^a-zA-Z0-9_-]", "", new_name.strip())
+                    if not clean_name:
+                        st.error("Prompt name must contain alphanumeric characters.")
+                    else:
+                        from llmops_demo.config import PROMPTS_DIR
+                        import hashlib
+                        prompt_path = PROMPTS_DIR / f"{clean_name}.txt"
+                        if prompt_path.exists():
+                            st.warning(f"Prompt `{clean_name}` already exists. Use a different name or edit it above.")
+                        else:
+                            prompt_path.write_text(new_text.strip(), encoding="utf-8")
+                            checksum = hashlib.sha256(new_text.strip().encode()).hexdigest()[:12]
+                            st.success(f"✅ Prompt `{clean_name}` saved! Checksum: `{checksum}`")
+                            st.info(f"File: `prompts/{clean_name}.txt`")
+                            st.rerun()
 
     _show_presenter_note(step)
 
@@ -696,6 +734,317 @@ Prompt Change → CI Validation → Evaluation → Quality Gate → Promotion
 
 
 # ---------------------------------------------------------------------------
+# Step 11 — Foundry Cloud Evaluation
+# ---------------------------------------------------------------------------
+
+def render_step_11(step: dict):
+    st.header("☁️ Foundry Cloud Evaluation")
+
+    if not _is_hands_on():
+        st.markdown(
+            "Run **cloud-based evaluation** using the OpenAI Evals API on Foundry. "
+            "Results appear under the **Agent → Evaluation** tab in the Foundry portal. "
+            "This uses `client.evals.create()` + `client.evals.runs.create()` with "
+            "built-in evaluators: **coherence**, **relevance**, **fluency**, **violence**."
+        )
+
+    prompts = list_prompts()
+    prompt_name = st.selectbox("Prompt variant", prompts, key="foundry_eval_prompt")
+    eval_mode = st.radio(
+        "Evaluation mode",
+        ["Agent Target (live agent queries)", "Dataset (pre-computed responses)"],
+        key="foundry_eval_mode",
+    )
+    judge_model = st.text_input("Judge model", value=PRIMARY_MODEL, key="foundry_eval_judge")
+    dry_run = st.checkbox("Dry run (show config only, no Foundry calls)", value=False, key="foundry_eval_dry")
+
+    if not _is_hands_on():
+        with st.expander("ℹ️ How it works"):
+            st.markdown(
+                "**Agent Target mode**: Uploads eval queries as a dataset, creates an "
+                "evaluation definition with built-in evaluators, and runs against "
+                f"`{AGENT_NAME}` in Foundry. The agent processes each query live.\n\n"
+                "**Dataset mode**: Pre-computes responses locally, uploads query+response "
+                "pairs, and evaluates the static data. Useful for offline analysis."
+            )
+
+    if st.button("🚀 Run Foundry Cloud Evaluation", key="run_foundry_eval_btn"):
+        if dry_run:
+            st.info("**Dry run** — showing configuration without calling Foundry.")
+            _safe_json({
+                "prompt_variant": prompt_name,
+                "mode": "agent_target" if "Agent" in eval_mode else "dataset",
+                "judge_model": judge_model,
+                "agent_name": AGENT_NAME,
+                "evaluators": ["builtin.coherence", "builtin.relevance", "builtin.fluency", "builtin.violence"],
+                "endpoint": AZURE_EXISTING_AIPROJECT_ENDPOINT,
+            })
+        else:
+            mode_key = "agent_target" if "Agent" in eval_mode else "dataset"
+            with st.spinner(f"Running Foundry cloud evaluation ({mode_key})... this may take a few minutes."):
+                def _run_eval():
+                    from llmops_demo.evaluation import load_eval_cases
+                    from llmops_demo.foundry_client import create_project_client, get_openai_client
+
+                    cases = load_eval_cases()
+                    client = get_openai_client()
+                    project_client = create_project_client()
+
+                    if mode_key == "agent_target":
+                        from scripts.foundry_eval import run_agent_target_evaluation
+                        return run_agent_target_evaluation(
+                            client=client,
+                            cases=cases,
+                            prompt_name=prompt_name,
+                            model=judge_model,
+                            agent_name=AGENT_NAME,
+                        )
+                    else:
+                        from scripts.foundry_eval import run_dataset_evaluation
+                        return run_dataset_evaluation(
+                            client=client,
+                            project_client=project_client,
+                            cases=cases,
+                            prompt_name=prompt_name,
+                            model=judge_model,
+                        )
+                result = _safe_action("Foundry cloud evaluation", _run_eval)
+
+            if result:
+                if result.get("status") == "failed":
+                    st.error(f"Evaluation failed: {result.get('error', 'Unknown error')}")
+                else:
+                    st.success("✅ Foundry cloud evaluation completed!")
+                    col1, col2, col3 = st.columns(3)
+                    col1.metric("Eval ID", result.get("eval_id", "N/A")[:20] + "…")
+                    col2.metric("Run ID", result.get("run_id", "N/A")[:20] + "…")
+                    col3.metric("Status", result.get("status", "N/A"))
+
+                    with st.expander("Full result"):
+                        _safe_json(result)
+
+                    st.info(
+                        "📊 View results in the **Foundry portal** → Agent → Evaluation tab.\n\n"
+                        f"Results also saved locally to `results/foundry_eval_result.json`."
+                    )
+
+    # Show previous Foundry eval results if they exist
+    prev_result = RESULTS_DIR / "foundry_eval_result.json"
+    if prev_result.exists():
+        with st.expander("📋 Previous Foundry evaluation result"):
+            import json as _json
+            data = _json.loads(prev_result.read_text(encoding="utf-8"))
+            _safe_json(data)
+
+    _show_presenter_note(step)
+
+
+# ---------------------------------------------------------------------------
+# Step 12 — Compare Evaluations
+# ---------------------------------------------------------------------------
+
+def render_step_12(step: dict):
+    st.header("📊 Compare Evaluations")
+
+    if not _is_hands_on():
+        st.markdown(
+            "Compare two evaluation results side-by-side. See which dimensions **improved** 🟢, "
+            "**regressed** 🔴, or stayed the same ⚪. Get a recommendation: "
+            "**APPROVE**, **REVIEW**, or **REJECT**."
+        )
+
+    # Find available eval result files
+    import glob as _glob
+
+    result_files = sorted(RESULTS_DIR.glob("*.json")) if RESULTS_DIR.exists() else []
+    result_names = [f.name for f in result_files]
+
+    if len(result_names) < 2:
+        st.warning(
+            "Need at least **2 evaluation result files** in `results/` to compare. "
+            "Run evaluations in Step 7 or Step 11 first."
+        )
+        if result_names:
+            st.info(f"Found {len(result_names)} file(s): {', '.join(result_names)}")
+    else:
+        col1, col2 = st.columns(2)
+        with col1:
+            baseline_file = st.selectbox("Baseline eval", result_names, key="compare_baseline")
+        with col2:
+            candidate_file = st.selectbox(
+                "Candidate eval",
+                [n for n in result_names if n != baseline_file] or result_names,
+                key="compare_candidate",
+            )
+
+        if st.button("🔍 Compare Evaluations", key="compare_eval_btn"):
+            with st.spinner("Comparing..."):
+                def _compare():
+                    import json as _json
+                    b_path = RESULTS_DIR / baseline_file
+                    c_path = RESULTS_DIR / candidate_file
+                    b_data = _json.loads(b_path.read_text(encoding="utf-8"))
+                    c_data = _json.loads(c_path.read_text(encoding="utf-8"))
+
+                    # Use compare_eval logic
+                    from scripts.compare_eval import compare, DIMENSIONS
+                    comparison = compare(b_data, c_data)
+                    return comparison
+                comparison = _safe_action("Evaluation comparison", _compare)
+
+            if comparison:
+                # Recommendation banner
+                rec = comparison.get("recommendation", "UNKNOWN")
+                if rec == "APPROVE":
+                    st.success(f"## Recommendation: **{rec}** ✅")
+                elif rec == "REVIEW":
+                    st.warning(f"## Recommendation: **{rec}** ⚠️")
+                else:
+                    st.error(f"## Recommendation: **{rec}** ❌")
+
+                # Delta table
+                st.subheader("Score Comparison")
+                dims = comparison.get("dimensions", {})
+                rows = []
+                for dim, d in dims.items():
+                    if d["improved"]:
+                        status = "🟢 Improved"
+                    elif d["regressed"]:
+                        status = "🔴 Regressed"
+                    else:
+                        status = "⚪ No change"
+                    sign = "+" if d["delta"] > 0 else ""
+                    rows.append({
+                        "Dimension": dim.replace("_", " ").title(),
+                        "Baseline": f"{d['baseline']:.2f}",
+                        "Candidate": f"{d['candidate']:.2f}",
+                        "Delta": f"{sign}{d['delta']:.2f}",
+                        "Status": status,
+                    })
+                st.dataframe(rows, use_container_width=True)
+
+                # Counts
+                c1, c2 = st.columns(2)
+                c1.metric("Baseline cases", comparison.get("baseline_count", 0))
+                c2.metric("Candidate cases", comparison.get("candidate_count", 0))
+
+    _show_presenter_note(step)
+
+
+# ---------------------------------------------------------------------------
+# Step 13 — Before vs After Deploy Testing
+# ---------------------------------------------------------------------------
+
+def render_step_13(step: dict):
+    st.header("🔀 Before vs After Deploy Testing")
+
+    if not _is_hands_on():
+        st.markdown(
+            "Send the **same query** to two different prompt variants side-by-side. "
+            "Compare responses, latency, and quality to decide whether to promote a change."
+        )
+
+    prompts = list_prompts()
+    col_before, col_after = st.columns(2)
+    with col_before:
+        before_prompt = st.selectbox("Before (baseline)", prompts, key="ba_before_prompt")
+    with col_after:
+        after_prompt = st.selectbox(
+            "After (candidate)",
+            [p for p in prompts if p != before_prompt] or prompts,
+            key="ba_after_prompt",
+        )
+
+    query = st.selectbox("Sample query", SAMPLE_QUERIES, key="ba_query")
+    custom = st.text_area("Or custom query", key="ba_custom")
+    user_input = custom.strip() or query
+
+    # Optional persona
+    personas = load_personas()
+    persona_names = {p["persona_id"]: p["name"] for p in personas}
+    use_persona = st.checkbox("Include persona context", key="ba_use_persona")
+    persona_id = None
+    if use_persona:
+        persona_id = st.selectbox(
+            "Select persona",
+            list(persona_names.keys()),
+            format_func=lambda x: persona_names[x],
+            key="ba_persona",
+        )
+
+    if st.button("⚡ Run Side-by-Side Comparison", key="ba_run_btn", use_container_width=True):
+        col_left, col_right = st.columns(2)
+
+        with col_left:
+            st.subheader(f"🅰️ Before: `{before_prompt}`")
+            with st.spinner("Running before..."):
+                def _run_before():
+                    from llmops_demo.agent_runner import run_query
+                    from llmops_demo.monitoring import record_event
+                    from dataclasses import asdict
+                    res = run_query(
+                        user_input,
+                        prompt_name=before_prompt,
+                        model=PRIMARY_MODEL,
+                        persona_id=persona_id,
+                    )
+                    record_event(res)
+                    return asdict(res)
+                before_result = _safe_action("Before run", _run_before)
+
+            if before_result:
+                st.metric("Latency", f"{before_result.get('elapsed_seconds', 'N/A')}s")
+                st.write(before_result.get("response_text", ""))
+                with st.expander("Full result"):
+                    _safe_json(before_result)
+
+        with col_right:
+            st.subheader(f"🅱️ After: `{after_prompt}`")
+            with st.spinner("Running after..."):
+                def _run_after():
+                    from llmops_demo.agent_runner import run_query
+                    from llmops_demo.monitoring import record_event
+                    from dataclasses import asdict
+                    res = run_query(
+                        user_input,
+                        prompt_name=after_prompt,
+                        model=PRIMARY_MODEL,
+                        persona_id=persona_id,
+                    )
+                    record_event(res)
+                    return asdict(res)
+                after_result = _safe_action("After run", _run_after)
+
+            if after_result:
+                st.metric("Latency", f"{after_result.get('elapsed_seconds', 'N/A')}s")
+                st.write(after_result.get("response_text", ""))
+                with st.expander("Full result"):
+                    _safe_json(after_result)
+
+        # Comparison summary
+        if before_result and after_result:
+            st.divider()
+            st.subheader("📈 Comparison Summary")
+            s1, s2, s3 = st.columns(3)
+            b_lat = before_result.get("elapsed_seconds", 0)
+            a_lat = after_result.get("elapsed_seconds", 0)
+            s1.metric("Before Latency", f"{b_lat}s")
+            s2.metric("After Latency", f"{a_lat}s")
+            if b_lat and a_lat:
+                delta_pct = ((a_lat - b_lat) / b_lat * 100) if b_lat else 0
+                sign = "+" if delta_pct > 0 else ""
+                s3.metric("Latency Change", f"{sign}{delta_pct:.1f}%")
+
+            b_len = len(before_result.get("response_text", ""))
+            a_len = len(after_result.get("response_text", ""))
+            r1, r2 = st.columns(2)
+            r1.metric("Before Response Length", f"{b_len} chars")
+            r2.metric("After Response Length", f"{a_len} chars")
+
+    _show_presenter_note(step)
+
+
+# ---------------------------------------------------------------------------
 # Step renderer dispatch
 # ---------------------------------------------------------------------------
 
@@ -710,4 +1059,7 @@ STEP_RENDERERS = {
     8: render_step_8,
     9: render_step_9,
     10: render_step_10,
+    11: render_step_11,
+    12: render_step_12,
+    13: render_step_13,
 }

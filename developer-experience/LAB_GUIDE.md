@@ -424,6 +424,80 @@ After Stage 9 completes, click the run → **Summary** tab to see:
 
 ---
 
+## Exercise 9 — Foundry Cloud Evaluation from UI
+
+Run a cloud evaluation directly from the Streamlit UI that appears in the
+Foundry portal under **Agent → Evaluation**.
+
+### 9.1 Launch the UI
+
+```powershell
+$env:PYTHONPATH = "src"
+streamlit run app/demo_ui.py
+```
+
+### 9.2 Navigate to Step 11 — Foundry Cloud Evaluation
+
+1. Click **Step 11** in the sidebar (or use Next until you reach it)
+2. Toggle **Hands-on Lab** mode in the sidebar
+3. Select a prompt variant (e.g. `aussie_mate` or `grounded_retail`)
+4. Choose **Agent Target** mode (sends live queries to the Foundry agent)
+5. Click **🚀 Run Foundry Cloud Evaluation**
+
+### 9.3 Monitor Progress
+
+The evaluation:
+- Uploads eval queries as a dataset to Foundry
+- Creates an evaluation with 4 built-in evaluators (coherence, relevance, fluency, violence)
+- Runs the agent against each query
+- Polls for completion (may take 2–5 minutes)
+
+### 9.4 Review Results
+
+After completion:
+- **Eval ID** and **Run ID** are displayed in the UI
+- Results are saved to `results/foundry_eval_result.json`
+- View full results in the **Foundry portal** → Agent → Evaluation tab
+
+### 9.5 (Optional) Try Dataset Mode
+
+1. Change the mode to **Dataset (pre-computed responses)**
+2. This runs the agent locally first, then uploads the query+response pairs
+3. Useful for offline evaluation without re-running the agent
+
+**Checkpoint**: Cloud evaluation visible in Foundry portal! ✅
+
+---
+
+## Exercise 10 — Compare Evaluations & Before/After Testing
+
+### 10.1 Compare Two Evaluations
+
+1. Navigate to **Step 12 — Compare Evaluations** in the UI
+2. Select two evaluation result files from the `results/` directory
+3. Click **🔍 Compare Evaluations**
+4. Review the delta table — 🟢 improved / 🔴 regressed / ⚪ no change
+5. Check the recommendation: **APPROVE**, **REVIEW**, or **REJECT**
+
+### 10.2 Before vs After Deploy Testing
+
+1. Navigate to **Step 13 — Before vs After Deploy Testing**
+2. Select a **Before** prompt (e.g. `baseline`) and an **After** prompt (e.g. `grounded_retail`)
+3. Choose a sample query or enter your own
+4. Optionally enable persona context for controlled testing
+5. Click **⚡ Run Side-by-Side Comparison**
+6. Compare the two responses, latency, and response length
+
+### 10.3 Iterate
+
+- Try different prompt combinations
+- Test with different personas
+- Compare your custom prompt (created in Step 2) against the baseline
+
+**Checkpoint**: Full evaluation comparison and A/B testing complete! ✅
+
+---
+
 ## Summary — The LLMOps Developer Loop
 
 ```

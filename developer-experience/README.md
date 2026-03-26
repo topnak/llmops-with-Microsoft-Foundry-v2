@@ -26,7 +26,7 @@ Follow the step-by-step instructions in:
 
 | File | Contents |
 |---|---|
-| [LAB_GUIDE.md](LAB_GUIDE.md) | Full hands-on lab (Exercises 1-7) |
+| [LAB_GUIDE.md](LAB_GUIDE.md) | Full hands-on lab (Exercises 1-10) |
 | [CHEAT_SHEET.md](CHEAT_SHEET.md) | Quick reference of all commands |
 
 ## Time Estimate
@@ -40,4 +40,7 @@ Follow the step-by-step instructions in:
 | 5. Run Agent & Evaluate | 10 min |
 | 6. Commit & Watch CI/CD | 5 min |
 | 7. Review Results | 5 min |
-| **Total** | ~45 min |
+| 8. Prompt Release Pipeline | 10 min |
+| 9. Foundry Cloud Evaluation from UI | 10 min |
+| 10. Compare Evaluations & Before/After Testing | 10 min |
+| **Total** | ~75 min |

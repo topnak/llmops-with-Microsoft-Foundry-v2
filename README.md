@@ -26,7 +26,7 @@ The LLMOps engineer walks through every stage of the AI lifecycle using
 ```
 ┌──────────────────────────────────────────────────────┐
 │  Streamlit Demo UI (app/demo_ui.py)                  │
-│  ─ guided 10-step walkthrough with Next/Back         │
+│  ─ guided 13-step walkthrough with Next/Back         │
 │  ─ triggers real Foundry calls or shows local data   │
 └──────────────┬───────────────────────────────────────┘
                │
@@ -136,7 +136,7 @@ Creates or updates **RetailPersonlisedAgent** in Microsoft Foundry.
 streamlit run app/demo_ui.py
 ```
 
-The UI provides a guided 10-step walkthrough with **Next** and **Back**
+The UI provides a guided 13-step walkthrough with **Next** and **Back**
 navigation, presenter notes, and interactive actions for each LLMOps stage.
 
 ---
@@ -171,6 +171,37 @@ python scripts/run_eval.py --prompt baseline
 ```
 
 Reports are saved to `results/eval_summary.json` and `results/eval_summary.md`.
+
+---
+
+## Foundry Cloud Evaluation (OpenAI Evals API)
+
+Run cloud-based evaluation that appears under **Agent → Evaluation** in the Foundry portal:
+
+```bash
+# Agent target evaluation (runs agent live, results in Foundry portal)
+python scripts/foundry_eval.py --prompt aussie_mate
+
+# Dataset evaluation (pre-computed responses)
+python scripts/foundry_eval.py --prompt aussie_mate --mode dataset
+
+# Dry-run (show config only)
+python scripts/foundry_eval.py --prompt aussie_mate --dry-run
+```
+
+Built-in evaluators: **coherence**, **relevance**, **fluency**, **violence**.
+
+---
+
+## Compare Evaluations
+
+```bash
+python scripts/compare_eval.py \
+  --baseline results/eval_baseline.json \
+  --candidate results/eval_summary.json
+```
+
+Produces a delta table with 🟢 improved / 🔴 regressed / ⚪ no change indicators.
 
 ---
 
@@ -250,7 +281,7 @@ To enable Stage 6 (manual approval before deployment):
 | Step | LLMOps Stage | Foundry Capability |
 |------|-------------|-------------------|
 | 1 | Introduction | Project Overview |
-| 2 | Prompt Engineering | Prompt Versioning |
+| 2 | Prompt Engineering | Prompt Versioning + Create New Prompts |
 | 3 | Agent Versioning | Managed Agent Creation |
 | 4 | Baseline Measurement | Agent Invocation |
 | 5 | Context Injection | Memory / Context Management |
@@ -259,6 +290,9 @@ To enable Stage 6 (manual approval before deployment):
 | 8 | Observability | Tracing and Monitoring |
 | 9 | Compliance and Safety | Governance Controls |
 | 10 | CI/CD Automation | Pipeline Integration |
+| 11 | Cloud Evaluation | OpenAI Evals API (Agent Evaluation Tab) |
+| 12 | Quality Comparison | Evaluation Delta Analysis |
+| 13 | Deployment Validation | A/B Prompt Testing (Before vs After) |
 
 ---
 
@@ -333,7 +367,22 @@ To enable Stage 6 (manual approval before deployment):
 ### Step 10 — Automation (2 min)
 > "Finally, GitHub Actions close the loop. Prompt changes trigger CI,
 > evaluation runs automatically, and promotion is quality-gated. That's
-> the complete LLMOps lifecycle. Thank you!"
+> the complete LLMOps lifecycle."
+
+### Step 11 — Foundry Cloud Evaluation (3 min)
+> "Now let's run a cloud evaluation that shows up directly in the Foundry
+> portal. We use the OpenAI Evals API with built-in evaluators for coherence,
+> relevance, fluency, and violence. Results appear under Agent → Evaluation."
+
+### Step 12 — Compare Evaluations (2 min)
+> "After multiple evaluations, we compare results side-by-side. Each dimension
+> shows whether it improved, regressed, or stayed the same. The system gives
+> an APPROVE, REVIEW, or REJECT recommendation."
+
+### Step 13 — Before vs After Testing (3 min)
+> "Before promoting a prompt change, we test side-by-side. The same query goes
+> to both the baseline and candidate prompts. We compare responses, latency,
+> and quality. This is the final check before production deployment. Thank you!"
 
 ---
 

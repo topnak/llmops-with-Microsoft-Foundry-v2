@@ -13,7 +13,7 @@ def test_demo_story_has_stages():
 
 def test_demo_steps_count():
     steps = load_demo_steps()
-    assert len(steps) == 10
+    assert len(steps) == 13
 
 
 def test_demo_steps_have_required_fields():
@@ -27,7 +27,7 @@ def test_demo_steps_have_required_fields():
 def test_demo_steps_sequential():
     steps = load_demo_steps()
     numbers = [s["step_number"] for s in steps]
-    assert numbers == list(range(1, 11))
+    assert numbers == list(range(1, 14))
 
 
 def test_demo_story_brands():

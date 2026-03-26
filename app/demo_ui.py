@@ -115,6 +115,7 @@ _STEP_COLORS = {
     1: "#7B2D8E",  2: "#0078D4",  3: "#0078D4",
     4: "#13A10E",  5: "#13A10E",  6: "#13A10E",  7: "#13A10E",
     8: "#CA5010",  9: "#D13438", 10: "#D13438",
+    11: "#13A10E", 12: "#13A10E", 13: "#13A10E",
 }
 _step_color = _STEP_COLORS.get(st.session_state.current_step, "#0078D4")
 

@@ -60,6 +60,22 @@ python scripts/run_eval.py --prompt grounded_retail
 python scripts/export_demo_report.py
 ```
 
+## Foundry Cloud Evaluation (OpenAI Evals API)
+
+```powershell
+# Agent target evaluation (runs agent live, results in Foundry portal)
+python scripts/foundry_eval.py --prompt aussie_mate
+
+# Dataset evaluation (pre-computed responses)
+python scripts/foundry_eval.py --prompt aussie_mate --mode dataset
+
+# Dry-run (show config only)
+python scripts/foundry_eval.py --prompt aussie_mate --dry-run
+
+# Use a different judge model
+python scripts/foundry_eval.py --prompt aussie_mate --model gpt-4.1
+```
+
 ## Streamlit UI
 
 ```powershell
@@ -149,6 +165,7 @@ python scripts/ai_feedback.py \
 | `prompts/*.txt` | **Your main edit target** |
 | `data/eval_cases.jsonl` | Evaluation test cases |
 | `data/personas.json` | Customer personas |
+| `scripts/foundry_eval.py` | Foundry cloud evaluation (OpenAI Evals API) |
 | `scripts/compare_eval.py` | Compare two eval result files |
 | `scripts/ai_feedback.py` | AI-powered prompt analysis |
 | `results/` | Generated reports (git-ignored) |

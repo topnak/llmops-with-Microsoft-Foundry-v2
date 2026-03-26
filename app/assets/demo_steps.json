@@ -98,5 +98,35 @@
     "action_label": null,
     "expected_output": "Workflow summaries and LLMOps loop complete message.",
     "fallback_note": "Workflow YAML files are local and always viewable."
+  },
+  {
+    "step_number": 11,
+    "title": "Foundry Cloud Evaluation",
+    "llmops_stage": "Cloud Evaluation",
+    "foundry_capability": "OpenAI Evals API (Agent Evaluation Tab)",
+    "speaker_note": "Now let's run a cloud evaluation that appears directly in the Foundry portal. We use the OpenAI Evals API — client.evals.create() — with built-in evaluators for coherence, relevance, fluency, and violence. Results show under Agent → Evaluation in the portal.",
+    "action_label": "Run Foundry Cloud Evaluation",
+    "expected_output": "Evaluation ID, run ID, pass/fail counts, and a link to the Foundry portal.",
+    "fallback_note": "If Foundry is unavailable, use dry-run mode to see the evaluation config without making API calls."
+  },
+  {
+    "step_number": 12,
+    "title": "Compare Evaluations",
+    "llmops_stage": "Quality Comparison",
+    "foundry_capability": "Evaluation Delta Analysis",
+    "speaker_note": "After multiple evaluations, we compare results side-by-side. Each dimension shows whether it improved, regressed, or stayed the same. The system gives an APPROVE, REVIEW, or REJECT recommendation — the same logic used in the CI/CD approval gate.",
+    "action_label": "Compare Two Evaluations",
+    "expected_output": "Delta table with baseline vs candidate scores, improvement indicators, and recommendation.",
+    "fallback_note": "Requires at least two eval result JSON files in the results/ directory."
+  },
+  {
+    "step_number": 13,
+    "title": "Before vs After Deploy Testing",
+    "llmops_stage": "Deployment Validation",
+    "foundry_capability": "A/B Prompt Testing",
+    "speaker_note": "Before promoting a prompt change, we test side-by-side. The same query goes to the baseline prompt and the candidate prompt. We compare responses, latency, and quality. This is the final check before deploying to production.",
+    "action_label": "Run Side-by-Side Comparison",
+    "expected_output": "Two agent responses displayed side-by-side with latency and length comparison.",
+    "fallback_note": "Requires Foundry connectivity to invoke the agent with both prompt variants."
   }
 ]
